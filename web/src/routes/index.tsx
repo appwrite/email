@@ -29,6 +29,15 @@ import {
   Star,
   Trash2,
   Zap,
+  ChevronDown,
+  FolderInput,
+  Forward,
+  ListFilter,
+  PenSquare,
+  RefreshCw,
+  Reply,
+  ReplyAll,
+  Tag,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { SoftLights } from '~/components/AuthLayout';
@@ -155,115 +164,209 @@ function TypedAddress() {
   );
 }
 
+// A faithful, static rendering of the real app (sidebar, list, reader), built
+// from the same tokens and sizes so the hero shows exactly what users get.
 const SAMPLE = [
-  { from: 'Northwind Studio', subject: 'Final cut is ready for review', snippet: 'Uploaded the 4K master and the stems. Notes from Friday are addressed.', time: '9:41 AM', unread: true },
-  { from: 'Ada Lovelace', subject: 'Re: Analytical Engine notes', snippet: 'I have annotated the second section with the algorithm for Bernoulli numbers.', time: '9:12 AM', unread: true, star: true },
+  { from: 'Northwind Studio', subject: 'Final cut is ready for review', snippet: 'Uploaded the 4K master and the stems. Notes from Friday are addressed, color pass is done.', time: '9:41 AM', unread: true, clip: true },
+  { from: 'Ada Lovelace', subject: 'Re: Analytical Engine notes', snippet: 'I have annotated the second section with the algorithm for computing Bernoulli numbers.', time: '9:12 AM', unread: true, star: true },
   { from: 'Grace Hopper', subject: 'Found a bug in relay 70', snippet: 'Panel F. Taped it to the logbook. First actual case of a bug being found.', time: 'Yesterday', clip: true },
-  { from: 'Alan Turing', subject: 'Imitation game on Friday?', snippet: 'Can a machine reply to this email convincingly? Let us find out.', time: 'Tuesday' },
-  { from: 'Katherine Johnson', subject: 'Trajectory numbers', snippet: 'Checked the figures by hand. They hold. Go for launch.', time: 'Monday' },
+  { from: 'Prize Department', subject: 'Act now! You have won', snippet: 'Confirm your details to claim the reward before midnight tonight.', time: 'Yesterday', spam: true },
+  { from: 'Alan Turing', subject: 'Imitation game on Friday?', snippet: 'Can a machine reply to this email convincingly? Let us find out together.', time: 'Tuesday' },
+  { from: 'Katherine Johnson', subject: 'Trajectory numbers', snippet: 'Checked the figures by hand. They hold. Go for launch whenever you are ready.', time: 'Monday' },
 ];
 
-const AVATAR_TINTS = ['#ff9f0a', '#5e5ce6', '#30b0c7', '#34c759', '#ff375f'];
-
-function MockAvatar({ name, i = 0 }: { name: string; i?: number }) {
+function MockAvatar({ name, size = 32 }: { name: string; size?: number }) {
   return (
     <span
-      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-      style={{ background: `linear-gradient(180deg, color-mix(in srgb, ${AVATAR_TINTS[i % 5]} 75%, white), ${AVATAR_TINTS[i % 5]})` }}
+      className="flex shrink-0 items-center justify-center rounded-full bg-fill-2 font-semibold text-fg-2 shadow-[inset_0_0_0_1px_var(--line)]"
+      style={{ width: size, height: size, fontSize: size * 0.36 }}
     >
       {name
         .split(' ')
         .map((p) => p[0])
         .join('')
-        .slice(0, 2)}
+        .slice(0, 2)
+        .toUpperCase()}
     </span>
   );
 }
 
+const MOCK_FOLDERS: [typeof Inbox, string, string][] = [
+  [Inbox, 'Inbox', '2'],
+  [Star, 'Starred', ''],
+  [Clock, 'Snoozed', ''],
+  [FileText, 'Drafts', '1'],
+  [Send, 'Sent', ''],
+  [Archive, 'Archive', ''],
+  [ShieldAlert, 'Junk', '1'],
+  [Trash2, 'Trash', ''],
+];
+
 function ProductShot() {
   return (
-    <div className="mx-auto mt-16 w-full max-w-[1080px] px-3 sm:px-6">
-      <div className="overflow-hidden rounded-[14px] bg-bg text-left shadow-[0_40px_100px_-30px_rgba(0,0,0,0.35),0_0_0_0.5px_rgba(0,0,0,0.12)] dark:shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8),0_0_0_0.5px_rgba(255,255,255,0.12)]">
-        <div className="flex h-[440px] sm:h-[520px]">
-          <aside className="hidden w-[210px] shrink-0 bg-sidebar p-3 md:block">
-            <div className="flex gap-2 px-1 pb-5 pt-1">
+    <div className="mx-auto mt-16 w-full max-w-[1120px] px-3 sm:px-6">
+      <div
+        aria-hidden
+        className="pointer-events-none overflow-hidden rounded-[14px] bg-bg text-left text-fg shadow-[0_40px_100px_-30px_rgba(0,0,0,0.35),0_0_0_0.5px_rgba(0,0,0,0.12)] select-none dark:shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8),0_0_0_0.5px_rgba(255,255,255,0.12)]"
+      >
+        <div className="flex h-[460px] sm:h-[560px]">
+          {/* Sidebar */}
+          <aside className="hidden w-[208px] shrink-0 flex-col border-r border-line bg-sidebar md:flex">
+            <div className="flex h-9 items-center gap-2 px-4 pt-1">
               {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
                 <span key={c} className="size-3 rounded-full" style={{ background: c }} />
               ))}
             </div>
-            <div className="px-2 pb-1 text-[11px] font-semibold text-fg-3">Mailboxes</div>
-            {(
-              [
-                [Inbox, 'Inbox', '2'],
-                [Star, 'Starred', ''],
-                [Clock, 'Snoozed', ''],
-                [Send, 'Sent', ''],
-                [FileText, 'Drafts', '1'],
-                [Archive, 'Archive', ''],
-              ] as const
-            ).map(([Icon, label, n], i) => (
-              <div key={label} className={cx('flex h-7 items-center gap-2 rounded-md px-2 text-[12.5px]', i === 0 ? 'bg-fill-2 text-fg' : 'text-fg')}>
-                <Icon className="h-3.5 w-3.5 text-accent" />
-                <span className="flex-1">{label}</span>
-                <span className="text-[11px] text-fg-3">{n}</span>
-              </div>
-            ))}
-          </aside>
-          <div className="w-full shrink-0 border-r border-line sm:w-[330px]">
-            <div className="flex items-end justify-between px-4 pb-2 pt-4">
-              <div>
-                <div className="font-display text-[19px] font-bold leading-none">Inbox</div>
-                <div className="mt-1 text-[11px] text-fg-3">2 unread</div>
-              </div>
-              <Search className="h-4 w-4 text-fg-3" />
+            <div className="flex h-10 items-center justify-between pl-4 pr-3">
+              <EmailLockup size={16} />
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
+                <PenSquare className="h-3.5 w-3.5" />
+              </span>
             </div>
-            <div className="px-1.5">
+            <div className="px-2.5">
+              <div className="mb-1 mt-2.5 px-2 text-[11px] font-semibold text-fg-3">Mailboxes</div>
+              {MOCK_FOLDERS.map(([Icon, label, n], i) => (
+                <div
+                  key={label}
+                  className={cx('flex h-7 items-center gap-2.5 rounded-md px-2 text-[12.5px]', i === 0 ? 'bg-fill-2 font-medium text-fg' : 'text-fg-2')}
+                >
+                  <Icon className={cx('h-3.5 w-3.5', i === 0 ? 'text-fg' : 'text-fg-3')} />
+                  <span className="flex-1">{label}</span>
+                  <span className="text-[10.5px] tabular-nums text-fg-3">{n}</span>
+                </div>
+              ))}
+              <div className="mb-1 mt-5 px-2 text-[11px] font-semibold text-fg-3">Labels</div>
+              {[
+                ['#ff3b30', 'Work'],
+                ['#007aff', 'Travel'],
+              ].map(([c, l]) => (
+                <div key={l} className="flex h-7 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg-2">
+                  <span className="flex h-3.5 w-3.5 items-center justify-center">
+                    <span className="h-2 w-2 rounded-full" style={{ background: c }} />
+                  </span>
+                  {l}
+                </div>
+              ))}
+            </div>
+            <div className="mt-auto flex items-center gap-2.5 border-t border-line px-3 py-2.5">
+              <MockAvatar name="Grace Lee" size={28} />
+              <div className="min-w-0">
+                <div className="truncate text-[12px] font-medium">Grace Lee</div>
+                <div className="truncate text-[10.5px] text-fg-3">grace@inbox-…</div>
+              </div>
+              <ChevronDown className="ml-auto h-3.5 w-3.5 text-fg-3" />
+            </div>
+          </aside>
+
+          {/* Message list */}
+          <div className="flex w-full shrink-0 flex-col border-r border-line bg-surface sm:w-[330px]">
+            <div className="flex h-[46px] items-center gap-1 px-3">
+              <div className="min-w-0 flex-1 pl-1">
+                <div className="font-display text-[17px] font-bold leading-tight tracking-[-0.01em]">Inbox</div>
+                <div className="text-[10.5px] leading-tight text-fg-3">2 unread</div>
+              </div>
+              <span className="px-1.5 text-[12px] font-medium text-accent">Select</span>
+              <RefreshCw className="mx-1.5 h-3.5 w-3.5 text-fg-2" />
+              <ListFilter className="mx-1.5 h-3.5 w-3.5 text-fg-2" />
+            </div>
+            <div className="border-b border-line px-3 pb-2">
+              <div className="flex h-7 items-center gap-2 rounded-md border border-line px-2.5 text-[12px] text-fg-3 dark:border-line-strong">
+                <Search className="h-3 w-3" />
+                <span className="flex-1">Search Inbox</span>
+                <Kbd className="h-4 min-w-4 text-[10px]">/</Kbd>
+              </div>
+            </div>
+            <div className="overflow-hidden pt-1.5">
               {SAMPLE.map((m, i) => (
-                <div key={m.subject} className={cx('relative flex gap-2.5 rounded-lg px-3 py-2', i === 1 && 'bg-selected')}>
-                  {m.unread && <span className="absolute left-1 top-[18px] h-2 w-2 rounded-full bg-accent" />}
-                  <MockAvatar name={m.from} i={i} />
+                <div key={m.subject} className={cx('relative mx-1.5 flex gap-2.5 rounded-md px-3 py-2', i === 1 && 'bg-selected')}>
+                  <span className="absolute left-0 top-0 flex h-full w-3 justify-center pt-[17px]">
+                    {m.unread && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                  </span>
+                  <MockAvatar name={m.from} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex text-[12.5px]">
-                      <span className={cx('flex-1 truncate', m.unread ? 'font-semibold' : '')}>{m.from}</span>
-                      <span className="text-[11px] text-fg-3">{m.time}</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className={cx('flex-1 truncate text-[12.5px]', m.unread && 'font-semibold')}>{m.from}</span>
+                      <span className="shrink-0 text-[10.5px] tabular-nums text-fg-3">{m.time}</span>
                     </div>
-                    <div className="flex items-center gap-1 truncate text-[12px]">
-                      <span className="truncate">{m.subject}</span>
-                      {m.star && <Star className="h-3 w-3 shrink-0 fill-[#ff9f0a] text-[#ff9f0a]" />}
+                    <div className="flex items-center gap-1.5">
+                      <span className={cx('flex-1 truncate text-[12px]', m.unread && 'font-semibold')}>{m.subject}</span>
+                      {m.spam && <span className="rounded-md bg-[rgba(245,158,11,0.12)] px-1.5 py-px text-[9.5px] font-medium text-warning">Possible spam</span>}
                       {m.clip && <Paperclip className="h-3 w-3 shrink-0 text-fg-3" />}
+                      {m.star && <Star className="h-3 w-3 shrink-0 fill-accent text-accent" />}
                     </div>
-                    <div className="line-clamp-1 text-[11.5px] leading-snug text-fg-2">{m.snippet}</div>
+                    <div className="mt-0.5 line-clamp-2 text-[11.5px] leading-[1.4] text-fg-2">{m.snippet}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="hidden min-w-0 flex-1 flex-col sm:flex">
-            <div className="flex h-11 items-center justify-end gap-4 px-5 text-fg-2">
-              {[Archive, Trash2, ShieldAlert, Star].map((I, i) => (
-                <I key={i} className="h-4 w-4" />
-              ))}
+
+          {/* Reader */}
+          <div className="hidden min-w-0 flex-1 flex-col bg-surface sm:flex">
+            <div className="flex h-[46px] items-center justify-between border-b border-line px-4 text-fg-2">
+              <div className="flex gap-3.5">
+                {[Archive, Trash2, ShieldAlert, FolderInput, Tag, Star].map((I, i) => (
+                  <I key={i} className="h-3.5 w-3.5" />
+                ))}
+              </div>
+              <div className="flex gap-3.5">
+                {[Reply, ReplyAll, Forward].map((I, i) => (
+                  <I key={i} className="h-3.5 w-3.5" />
+                ))}
+              </div>
             </div>
-            <div className="px-7 pb-6 pt-2">
-              <div className="font-display text-[22px] font-bold leading-tight tracking-[-0.02em]">Re: Analytical Engine notes</div>
-              <div className="mt-5 flex items-center gap-3">
-                <MockAvatar name="Ada Lovelace" i={1} />
-                <div>
-                  <div className="text-[13px] font-semibold">Ada Lovelace</div>
-                  <div className="text-[11.5px] text-fg-3">To: you · 9:12 AM</div>
+            <div className="overflow-hidden px-7 pt-5">
+              <div className="font-display text-[21px] font-bold leading-[1.15] tracking-[-0.025em]">Re: Analytical Engine notes</div>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <span className="text-[10.5px] text-fg-3">2 messages</span>
+                <span className="rounded-md px-1.5 text-[10.5px] font-medium" style={{ background: '#ff3b301f', color: '#ff3b30' }}>
+                  Work
+                </span>
+              </div>
+              {/* Collapsed earlier message */}
+              <div className="mt-3 flex items-center gap-3 py-2.5">
+                <MockAvatar name="Grace Lee" size={28} />
+                <span className="text-[12.5px] font-semibold">Grace Lee</span>
+                <span className="min-w-0 flex-1 truncate text-[11.5px] text-fg-3">Could you share the notes on the engine before Friday?</span>
+                <span className="text-[10.5px] text-fg-3">8:02 AM</span>
+              </div>
+              {/* Expanded latest message */}
+              <div className="border-t border-line pt-4">
+                <div className="flex items-start gap-3">
+                  <MockAvatar name="Ada Lovelace" size={36} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-semibold tracking-[-0.01em]">Ada Lovelace</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-fg-3">
+                      <span className="truncate">ada@analytical.engine</span>
+                      <span>·</span>
+                      <span className="flex items-center gap-0.5 text-fg-2">
+                        to me <ChevronDown className="h-3 w-3" />
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] tabular-nums text-fg-3">Today 9:12 AM</span>
                 </div>
-              </div>
-              <div className="mt-5 space-y-3 text-[13px] leading-relaxed text-fg">
-                <p>I have annotated the second section with the algorithm for computing Bernoulli numbers.</p>
-                <p className="text-fg-2">
-                  The engine might act upon other things besides number, if those things could be expressed in its notation. Perhaps even email.
-                </p>
-              </div>
-              <div className="mt-5 inline-flex h-12 items-center gap-2.5 rounded-xl bg-fill px-3.5">
-                <FileText className="h-5 w-5 text-[#ff3b30]" />
-                <div className="text-[11.5px]">
-                  <div className="font-medium">Note G.pdf</div>
-                  <div className="text-fg-3">284 KB</div>
+                <div className="mt-4 space-y-2.5 text-[12.5px] leading-relaxed">
+                  <p>Hi Grace,</p>
+                  <p>I have annotated the second section with the algorithm for computing Bernoulli numbers. The full notes are attached.</p>
+                  <p className="text-fg-2">
+                    The engine might act upon other things besides number, if those things could be expressed in its notation. Perhaps even email.
+                  </p>
+                </div>
+                <div className="mt-4 w-[150px]">
+                  <div className="flex h-[84px] items-center justify-center rounded-2xl bg-fill">
+                    <FileText className="h-7 w-7 text-accent" />
+                  </div>
+                  <div className="px-1 pt-1.5 text-[11.5px] font-medium">Note G.pdf</div>
+                  <div className="px-1 text-[10.5px] text-fg-3">284 KB</div>
+                </div>
+                <div className="mt-5 flex items-center gap-2">
+                  <div className="flex h-10 flex-1 items-center gap-2.5 rounded-full bg-fill px-4 text-[12.5px] text-fg-3">
+                    <Reply className="h-4 w-4" /> Reply to Ada Lovelace…
+                  </div>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-fill text-fg-2">
+                    <Forward className="h-4 w-4" />
+                  </span>
                 </div>
               </div>
             </div>
