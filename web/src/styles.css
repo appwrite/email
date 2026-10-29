@@ -1,0 +1,331 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Neutral, Apple-style tokens: system type, soft grays, and the system blue
+   as the one accent. */
+:root {
+  --accent: #007aff;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(0, 122, 255, 0.1);
+
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --chrome: rgba(255, 255, 255, 0.86);
+  --sidebar: #f5f5f7;
+  --sunken: #f5f5f7;
+  --fg: #1d1d1f;
+  --fg-2: #6e6e73;
+  --fg-3: #a1a1a6;
+  --line: #e8e8ed;
+  --line-strong: #d2d2d7;
+  --fill: #f2f2f4;
+  --fill-2: #e8e8ed;
+  --selected: rgba(0, 122, 255, 0.1);
+  --danger: #ff3b30;
+  --success: #28a745;
+  --warning: #f59e0b;
+  --info: #007aff;
+  --shadow-lg: 0 18px 50px -12px rgba(0, 0, 0, 0.18), 0 2px 8px -2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  --scrim: rgba(0, 0, 0, 0.28);
+  --selection: rgba(0, 122, 255, 0.22);
+  color-scheme: light;
+}
+
+.dark {
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.16);
+  --bg: #1c1c1e;
+  --surface: #1c1c1e;
+  --card: #242426;
+  --elevated: #2c2c2e;
+  --chrome: rgba(28, 28, 30, 0.86);
+  --sidebar: #161617;
+  --sunken: #161617;
+  --fg: #f5f5f7;
+  --fg-2: #a1a1a6;
+  --fg-3: #6e6e73;
+  --line: #2c2c2e;
+  --line-strong: #3a3a3c;
+  --fill: #2a2a2c;
+  --fill-2: #3a3a3c;
+  --selected: rgba(10, 132, 255, 0.2);
+  --danger: #ff453a;
+  --success: #30d158;
+  --warning: #ffd60a;
+  --info: #0a84ff;
+  --shadow-lg: 0 18px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --selection: rgba(10, 132, 255, 0.4);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, 'Courier New', monospace;
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-chrome: var(--chrome);
+  --color-sidebar: var(--sidebar);
+  --color-sunken: var(--sunken);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+  --color-selected: var(--selected);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --shadow-pop: var(--shadow-lg);
+  --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  html.app,
+  html.app body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  ::selection {
+    background-color: var(--selection);
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  a,
+  button,
+  [role='button'] {
+    outline: none;
+  }
+
+  :focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    outline-offset: 1px;
+    border-radius: 6px;
+  }
+
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  .scroll-thin::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Translucent chrome, as in macOS toolbars. */
+  .vibrancy {
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* Rich text editor */
+  .editor {
+    outline: none;
+    word-break: break-word;
+  }
+
+  .editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--fg-3);
+    pointer-events: none;
+  }
+
+  .editor blockquote {
+    border-left: 2px solid var(--line-strong);
+    margin: 0.5em 0;
+    padding-left: 12px;
+    color: var(--fg-2);
+  }
+
+  .editor ul {
+    list-style: disc;
+    padding-left: 1.5em;
+  }
+
+  .editor ol {
+    list-style: decimal;
+    padding-left: 1.5em;
+  }
+
+  .editor a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .editor p,
+  .editor div {
+    min-height: 1.5em;
+  }
+}
+
+/* --- Type helpers -------------------------------------------------------- */
+
+/* Legacy trailing-underscore mark; hidden in the neutral theme. */
+.u {
+  display: none;
+}
+
+/* Small section label, as in macOS sidebars and settings. */
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--fg-2);
+}
+
+/* Headline gradient: deep gray into the foreground. */
+.text-gradient-brand {
+  background-image: linear-gradient(180deg, var(--fg) 30%, color-mix(in oklch, var(--fg) 62%, var(--bg)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  padding-block-end: 0.12em;
+  margin-block-end: -0.12em;
+}
+
+/* Soft ambient light behind hero and auth screens. */
+.soft-light-pink {
+  background: radial-gradient(ellipse at center, rgba(0, 122, 255, 0.12) 0%, rgba(0, 122, 255, 0.04) 40%, transparent 72%);
+}
+
+.soft-light-purple {
+  background: radial-gradient(ellipse at center, rgba(175, 82, 222, 0.1) 0%, rgba(175, 82, 222, 0.035) 40%, transparent 74%);
+}
+
+.dark .soft-light-pink {
+  background: radial-gradient(ellipse at center, rgba(10, 132, 255, 0.14) 0%, rgba(10, 132, 255, 0.04) 40%, transparent 72%);
+}
+
+.dark .soft-light-purple {
+  background: radial-gradient(ellipse at center, rgba(191, 90, 242, 0.1) 0%, rgba(191, 90, 242, 0.03) 40%, transparent 74%);
+}
+
+/* Dot grid ground for diagrams. */
+.dot-grid {
+  background-image: radial-gradient(circle, var(--line-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* --- Motion ---------------------------------------------------------------- */
+
+/* Opacity only: content never moves while it appears. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.45s ease-out both;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.appear-late {
+  animation: appear 0.2s ease-out 0.35s both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--fill) 0px, var(--fill-2) 80px, var(--fill) 160px);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: currentColor;
+  animation: pulse-ring 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

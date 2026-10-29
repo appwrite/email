@@ -1,0 +1,9 @@
+{
+  "name": "appwrite-email-functions",
+  "private": true,
+  "type": "module",
+  "description": "Inbound email, send API and maintenance jobs for Appwrite Email",
+  "dependencies": {
+    "node-appwrite": "^31.1.0"
+  }
+}

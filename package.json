@@ -1,0 +1,11 @@
+{
+  "name": "appwrite-email",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.mjs"
+  },
+  "devDependencies": {
+    "node-appwrite": "^31.1.0"
+  }
+}
