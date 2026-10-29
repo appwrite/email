@@ -66,6 +66,7 @@ export function MessageList({
   const lastClicked = useRef<string | null>(null);
   const [q, setQ] = useState(view.q || '');
   const [refreshing, setRefreshing] = useState(false);
+  const loading = useRef(false);
 
   useEffect(() => setQ(view.q || ''), [view.q]);
 
@@ -154,13 +155,19 @@ export function MessageList({
           </button>
           <IconButton
             label="Refresh"
-            onClick={async () => {
+            anim="none"
+            onClick={() => {
+              if (refreshing) return;
+              loading.current = true;
               setRefreshing(true);
-              await queryClient.invalidateQueries({ queryKey: ['messages'] });
-              setRefreshing(false);
+              queryClient.invalidateQueries({ queryKey: ['messages'] }).finally(() => (loading.current = false));
             }}
           >
-            <RefreshCw className={cx('h-[17px] w-[17px]', refreshing && 'animate-spin')} />
+            {/* Stops only at the end of a turn, so a fast refresh still completes one spin. */}
+            <RefreshCw
+              className={cx('h-[17px] w-[17px]', refreshing && 'icon-refreshing')}
+              onAnimationIteration={() => !loading.current && setRefreshing(false)}
+            />
           </IconButton>
           <IconButton ref={filterRef} label="Filter" active={!!view.filter} onClick={() => setFilterOpen((v) => !v)}>
             <ListFilter className={cx('h-[18px] w-[18px]', view.filter && 'text-accent')} />
@@ -427,15 +434,9 @@ const MessageItem = memo(function MessageItem({
           ...(row.folder !== 'archive' ? [{ label: 'Archive', icon: Archive, run: () => archive([row.$id]) }] : []),
           { label: 'Delete', icon: Trash2, run: () => trash([row.$id]) },
         ].map(({ label, icon: Icon, run }) => (
-          <button
-            key={label}
-            title={label}
-            aria-label={label}
-            onClick={run}
-            className="flex h-7 w-7 items-center justify-center rounded-[5px] text-fg-2 hover:bg-fill-2 hover:text-fg"
-          >
+          <IconButton key={label} label={label} size="sm" onClick={run} className="rounded-[5px] hover:bg-fill-2">
             <Icon className="h-[15px] w-[15px]" />
-          </button>
+          </IconButton>
         ))}
       </div>
     </li>

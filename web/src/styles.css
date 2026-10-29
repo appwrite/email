@@ -315,6 +315,94 @@
   animation: pulse-ring 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
 }
 
+/* --- Icon micro-interactions ---------------------------------------------- */
+
+.icon-anim {
+  display: inline-flex;
+  transition: transform 0.18s var(--ease-apple);
+}
+
+.icon-btn:hover .icon-anim,
+.icon-hover:hover .icon-anim {
+  transform: translateY(-0.5px) scale(1.08);
+}
+
+.icon-btn:active .icon-anim,
+.icon-hover:active .icon-anim {
+  transform: scale(0.86);
+  transition-duration: 0.08s;
+}
+
+.icon-pop { animation: icon-pop 0.38s var(--ease-apple); }
+.icon-spin { animation: icon-spin 0.6s var(--ease-apple); }
+.icon-wiggle { animation: icon-wiggle 0.45s ease-in-out; }
+.icon-drop { animation: icon-drop 0.42s var(--ease-apple); }
+.icon-star { animation: icon-star 0.5s var(--ease-apple); }
+.icon-tilt { animation: icon-tilt 0.4s var(--ease-apple); }
+.icon-shake { animation: icon-shake 0.4s ease-in-out; }
+.icon-nudge { animation: icon-nudge 0.38s var(--ease-apple); }
+
+@keyframes icon-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.8); }
+  70% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+@keyframes icon-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes icon-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-14deg); }
+  45% { transform: rotate(11deg); }
+  70% { transform: rotate(-6deg); }
+  88% { transform: rotate(3deg); }
+}
+
+@keyframes icon-drop {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(3px) scale(0.94); }
+  70% { transform: translateY(-1.5px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes icon-star {
+  0% { transform: scale(1) rotate(0); }
+  40% { transform: scale(0.7) rotate(-30deg); }
+  75% { transform: scale(1.25) rotate(12deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+@keyframes icon-tilt {
+  0%, 100% { transform: rotate(0); }
+  35% { transform: rotate(-12deg) scale(0.92); }
+  70% { transform: rotate(6deg); }
+}
+
+@keyframes icon-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-2.5px); }
+  40% { transform: translateX(2.5px); }
+  60% { transform: translateX(-1.5px); }
+  80% { transform: translateX(1px); }
+}
+
+@keyframes icon-nudge {
+  0%, 100% { transform: translateX(0); }
+  40% { transform: translateX(-2.5px) scale(0.94); }
+  75% { transform: translateX(1.5px); }
+}
+
+/* Refresh keeps turning while loading and always lands on a full turn. */
+.icon-refreshing { animation: icon-spin 0.7s var(--ease-apple) infinite; }
+
+/* Sidebar mailbox icons lift slightly on hover. */
+.nav-icon-hover svg { transition: transform 0.2s var(--ease-apple); }
+.nav-icon-hover:hover svg { transform: scale(1.1); }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

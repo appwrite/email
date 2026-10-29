@@ -55,24 +55,57 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
+// Click animation per action, picked from the button's label unless set.
+export type IconAnim = 'pop' | 'spin' | 'wiggle' | 'drop' | 'star' | 'tilt' | 'shake' | 'nudge' | 'none';
+function animFor(label: string): IconAnim {
+  const l = label.toLowerCase();
+  if (/delete|trash|discard|remove/.test(l)) return 'wiggle';
+  if (/archive|move|restore|labels?\b/.test(l)) return 'drop';
+  if (/star/.test(l)) return 'star';
+  if (/junk|spam|block/.test(l)) return 'shake';
+  if (/refresh|reload/.test(l)) return 'spin';
+  if (/reply|forward|back|snooze/.test(l)) return 'nudge';
+  if (/mark|read|filter|more|formatting/.test(l)) return 'tilt';
+  return 'pop';
+}
+
+/** Restarts a one-shot icon animation on every click. */
+export function useIconAnim(anim: IconAnim) {
+  const [tick, setTick] = useState(0);
+  return {
+    trigger: () => anim !== 'none' && setTick((t) => t + 1),
+    // Keyed by click count, so a fast second click restarts the animation.
+    wrap: (children: ReactNode) => (
+      <span key={tick} className={cx('icon-anim', tick > 0 && `icon-${anim}`)}>
+        {children}
+      </span>
+    ),
+  };
+}
+
 export const IconButton = forwardRef<
   HTMLButtonElement,
-  ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean; size?: 'sm' | 'md' }
->(function IconButton({ label, active, size = 'md', className, children, ...props }, ref) {
+  ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean; size?: 'sm' | 'md'; anim?: IconAnim }
+>(function IconButton({ label, active, size = 'md', anim, className, children, onClick, ...props }, ref) {
+  const icon = useIconAnim(anim ?? animFor(label));
   return (
     <button
       ref={ref}
       aria-label={label}
       title={label}
+      onClick={(e) => {
+        icon.trigger();
+        onClick?.(e);
+      }}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded-md text-fg-2 transition-colors duration-100 hover:bg-fill hover:text-fg active:bg-fill-2 disabled:pointer-events-none disabled:opacity-35',
+        'icon-btn inline-flex shrink-0 items-center justify-center rounded-md text-fg-2 transition-colors duration-100 hover:bg-fill hover:text-fg active:bg-fill-2 disabled:pointer-events-none disabled:opacity-35',
         size === 'md' ? 'h-8 w-8' : 'h-7 w-7',
         active && 'bg-fill-2 text-fg',
         className,
       )}
       {...props}
     >
-      {children}
+      {icon.wrap(children)}
     </button>
   );
 });

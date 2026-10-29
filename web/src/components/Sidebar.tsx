@@ -20,7 +20,7 @@ import { signOut } from '~/lib/session';
 import { createLabel, findCachedRow, makeView, prefetchFolder, updateMessages, useCounts, useLabels } from '~/lib/queries';
 import { openComposer, prefsStore, toast, uiStore, updatePrefs } from '~/lib/store';
 import { EmailLockup } from './brand';
-import { Avatar, Kbd, MenuItem, MenuSeparator, Popover, cx } from './ui';
+import { Avatar, IconButton, Kbd, MenuItem, MenuSeparator, Popover, cx } from './ui';
 
 export const DRAG_TYPE = 'application/x-appwrite-email';
 
@@ -79,7 +79,7 @@ function NavItem({
       onFocus={onHover}
       {...(onDropIds ? drop.props : {})}
       className={cx(
-        'group flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors duration-75',
+        'nav-icon-hover group flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors duration-75',
         active ? 'bg-fill-2 font-medium text-fg' : 'text-fg-2 hover:bg-fill hover:text-fg',
         drop.over && 'bg-accent-soft text-fg shadow-[inset_0_0_0_1px_var(--accent)]',
       )}
@@ -132,14 +132,15 @@ export function Sidebar() {
           <span className="flex-1 text-left">Search</span>
           <Kbd>⌘K</Kbd>
         </button>
-        <button
-          onClick={() => openComposer()}
-          aria-label="New message"
+        <IconButton
+          label="New message"
           title="New message (C)"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-white transition hover:opacity-90"
+          anim="tilt"
+          onClick={() => openComposer()}
+          className="bg-accent text-white hover:bg-accent hover:text-white hover:opacity-90 active:bg-accent"
         >
           <PenSquare className="h-4 w-4" />
-        </button>
+        </IconButton>
       </div>
 
       <nav className="scroll-thin flex-1 overflow-y-auto px-2.5 pb-4">
