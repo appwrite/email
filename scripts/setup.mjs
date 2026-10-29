@@ -171,6 +171,24 @@ const schema = {
     ],
     indexes: [{ key: 'k_owner', type: 'key', columns: ['ownerId'] }],
   },
+  // Personal API keys. Only a SHA-256 hash is stored; rows are created by the
+  // api function and readable and deletable by their owner.
+  [TABLES.apikeys]: {
+    name: 'API keys',
+    permissions: [],
+    columns: [
+      str('ownerId', 36, { required: true }),
+      str('name', 64, { required: true }),
+      str('prefix', 16, { required: true }),
+      str('hash', 64, { required: true }),
+      str('scopes', 32, { array: true }),
+      date('lastUsedAt'),
+    ],
+    indexes: [
+      { key: 'k_owner', type: 'key', columns: ['ownerId'] },
+      { key: 'u_hash', type: 'unique', columns: ['hash'] },
+    ],
+  },
 };
 
 async function createColumn(tableId, c) {

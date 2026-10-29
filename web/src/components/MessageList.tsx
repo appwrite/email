@@ -27,7 +27,7 @@ import { useMail } from '~/lib/mail-context';
 import { prefetchThread, queryClient, useCounts, useLabels, useMessages, type View } from '~/lib/queries';
 import { prefsStore, uiStore } from '~/lib/store';
 import { DRAG_TYPE } from './Sidebar';
-import { Avatar, Empty, IconButton, MenuItem, MenuLabel, MenuSeparator, Popover, Spinner, cx } from './ui';
+import { Avatar, Empty, IconButton, Kbd, warmAvatars, MenuItem, MenuLabel, MenuSeparator, Popover, Spinner, cx } from './ui';
 
 export function MessageList({
   view,
@@ -69,6 +69,12 @@ export function MessageList({
   const loading = useRef(false);
 
   useEffect(() => setQ(view.q || ''), [view.q]);
+
+  // Resolve sender avatars for the whole page up front, so rows scrolled into
+  // view already have their final picture.
+  useEffect(() => {
+    warmAvatars(rows.map((r) => (view.folder === 'sent' || view.folder === 'scheduled' ? parseAddress(r.to?.[0] || '')?.email : r.fromEmail)));
+  }, [rows, view.folder]);
 
   useEffect(() => {
     const el = sentinel.current;
@@ -218,6 +224,7 @@ export function MessageList({
               placeholder={`Search ${title}`}
               className="h-full min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-fg-3"
             />
+            {!q && <Kbd className="pointer-events-none">/</Kbd>}
             {q && (
               <button
                 type="button"

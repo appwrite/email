@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MailRouteImport } from './routes/mail'
 import { Route as RecoverRouteImport } from './routes/recover'
@@ -20,10 +21,16 @@ import { Route as MailIndexRouteImport } from './routes/mail/index'
 import { Route as MailFolderRouteImport } from './routes/mail/$folder'
 import { Route as MailContactsRouteImport } from './routes/mail/contacts'
 import { Route as MailSettingsRouteImport } from './routes/mail/settings'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevelopersRoute = DevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -76,9 +83,15 @@ const MailSettingsRoute = MailSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => MailRoute,
 } as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/developers': typeof DevelopersRoute
   '/login': typeof LoginRoute
   '/mail': typeof MailRouteWithChildren
   '/recover': typeof RecoverRoute
@@ -88,10 +101,12 @@ export interface FileRoutesByFullPath {
   '/mail/$folder': typeof MailFolderRoute
   '/mail/contacts': typeof MailContactsRoute
   '/mail/settings': typeof MailSettingsRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/mail/': typeof MailIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/developers': typeof DevelopersRoute
   '/login': typeof LoginRoute
   '/recover': typeof RecoverRoute
   '/signup': typeof SignupRoute
@@ -100,11 +115,13 @@ export interface FileRoutesByTo {
   '/mail/$folder': typeof MailFolderRoute
   '/mail/contacts': typeof MailContactsRoute
   '/mail/settings': typeof MailSettingsRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/mail': typeof MailIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/developers': typeof DevelopersRoute
   '/login': typeof LoginRoute
   '/mail': typeof MailRouteWithChildren
   '/recover': typeof RecoverRoute
@@ -114,12 +131,14 @@ export interface FileRoutesById {
   '/mail/$folder': typeof MailFolderRoute
   '/mail/contacts': typeof MailContactsRoute
   '/mail/settings': typeof MailSettingsRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/mail/': typeof MailIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/developers'
     | '/login'
     | '/mail'
     | '/recover'
@@ -129,10 +148,12 @@ export interface FileRouteTypes {
     | '/mail/$folder'
     | '/mail/contacts'
     | '/mail/settings'
+    | '/oauth/consent'
     | '/mail/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/developers'
     | '/login'
     | '/recover'
     | '/signup'
@@ -141,10 +162,12 @@ export interface FileRouteTypes {
     | '/mail/$folder'
     | '/mail/contacts'
     | '/mail/settings'
+    | '/oauth/consent'
     | '/mail'
   id:
     | '__root__'
     | '/'
+    | '/developers'
     | '/login'
     | '/mail'
     | '/recover'
@@ -154,17 +177,20 @@ export interface FileRouteTypes {
     | '/mail/$folder'
     | '/mail/contacts'
     | '/mail/settings'
+    | '/oauth/consent'
     | '/mail/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DevelopersRoute: typeof DevelopersRoute
   LoginRoute: typeof LoginRoute
   MailRoute: typeof MailRouteWithChildren
   RecoverRoute: typeof RecoverRoute
   SignupRoute: typeof SignupRoute
   VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
+  OauthConsentRoute: typeof OauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -174,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developers': {
+      id: '/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof DevelopersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -246,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MailSettingsRouteImport
       parentRoute: typeof MailRoute
     }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,12 +307,14 @@ const MailRouteWithChildren = MailRoute._addFileChildren(MailRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DevelopersRoute: DevelopersRoute,
   LoginRoute: LoginRoute,
   MailRoute: MailRouteWithChildren,
   RecoverRoute: RecoverRoute,
   SignupRoute: SignupRoute,
   VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,
+  OauthConsentRoute: OauthConsentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

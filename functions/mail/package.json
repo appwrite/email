@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Inbound email, send API and maintenance jobs for Appwrite Email",
   "dependencies": {
+    "jose": "^5.10.0",
     "node-appwrite": "^31.1.0"
   }
 }

@@ -85,6 +85,7 @@ function Header() {
             ['#own', 'Open source'],
             ['#deploy', 'Self-host'],
             ['#features', 'Features'],
+            ['/developers', 'Developers'],
           ].map(([href, label]) => (
             <a key={href} href={href} className="transition hover:text-fg">
               {label}
@@ -642,6 +643,69 @@ function Footer() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// API and MCP
+// ---------------------------------------------------------------------------
+
+function Programmable() {
+  const clients = ['Claude', 'ChatGPT', 'Cursor', 'VS Code', 'Claude Code'];
+  return (
+    <section id="developers" className="scroll-mt-14 py-20 sm:py-28">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
+        <Reveal>
+          <p className="mb-3 text-[15px] font-semibold text-accent">API and MCP</p>
+          <h2 className="font-display text-[36px] font-bold leading-[1.05] tracking-[-0.03em] text-fg sm:text-[52px]">Let your assistant handle the inbox.</h2>
+          <p className="mt-5 max-w-md text-[17px] leading-relaxed text-fg-2">
+            Connect Claude, ChatGPT or your editor to the remote MCP server with one click and a sign-in. Or build on the REST API with OAuth 2.1
+            and scoped keys.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {clients.map((c) => (
+              <span key={c} className="rounded-full bg-fill px-3 py-1 text-[13px] text-fg-2">
+                {c}
+              </span>
+            ))}
+          </div>
+          <Link to="/developers" className={cx(pillSecondary, 'mt-7 text-[16px]')}>
+            Developer docs <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Reveal>
+        <Reveal delay={0.08} className="overflow-hidden rounded-[28px] bg-sunken p-2">
+          <div className="rounded-[22px] bg-bg p-5 text-[14px] shadow-sm">
+            <div className="flex items-center gap-2 text-[12.5px] text-fg-3">
+              <Sparkle /> Assistant
+            </div>
+            <p className="mt-2 text-fg">Archive my newsletters from this week and draft a reply to Ada about the engine notes.</p>
+            <div className="mt-4 space-y-1.5 font-mono text-[12.5px]">
+              {[
+                ['list_messages', 'query: "newsletter"', '6 found'],
+                ['update_messages', 'move_to: archive', '6 archived'],
+                ['read_thread', 'Analytical Engine notes', '3 messages'],
+                ['reply_to_email', 'to Ada Lovelace', 'sent'],
+              ].map(([tool, arg, out]) => (
+                <div key={tool} className="flex items-center gap-2 rounded-lg bg-fill px-3 py-2">
+                  <Check className="h-3.5 w-3.5 shrink-0 text-success" />
+                  <span className="text-fg">{tool}</span>
+                  <span className="truncate text-fg-3">{arg}</span>
+                  <span className="ml-auto shrink-0 text-fg-2">{out}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function Sparkle() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-accent" fill="currentColor" aria-hidden>
+      <path d="M8 0c.4 3.9 2.1 5.6 6 6-3.9.4-5.6 2.1-6 6-.4-3.9-2.1-5.6-6-6 3.9-.4 5.6-2.1 6-6Z" transform="translate(1 2) scale(.85)" />
+    </svg>
+  );
+}
+
 function Landing() {
   return (
     <div className="min-h-dvh overflow-x-hidden bg-bg text-fg">
@@ -650,6 +714,7 @@ function Landing() {
       <Own />
       <Deploy />
       <Features />
+      <Programmable />
       <Keyboard />
       <ClosingCta />
       <Footer />

@@ -4,6 +4,7 @@ import { Check, Copy, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { AuthLayout, FormError } from '~/components/AuthLayout';
 import { Button, Field, Input, Spinner, cx } from '~/components/ui';
+import { takeAfterAuth } from '~/lib/session';
 import { callApi } from '~/lib/api';
 import { MAIL_DOMAIN, type MailboxRow } from '~/lib/appwrite';
 import { fetchAccount, fetchMailbox, queryClient } from '~/lib/queries';
@@ -47,7 +48,10 @@ function Welcome() {
     fetchAccount().then(async (user) => {
       if (!user) return navigate({ to: '/login', replace: true });
       const mailbox = await fetchMailbox(user.$id);
-      if (mailbox) return navigate({ to: '/mail/$folder', params: { folder: 'inbox' }, replace: true });
+      if (mailbox) {
+        const next = takeAfterAuth();
+        return next ? window.location.replace(next) : navigate({ to: '/mail/$folder', params: { folder: 'inbox' }, replace: true });
+      }
       setUid(user.$id);
       setName(user.name);
       setHandle((h) => h || suggestions(user.name)[0] || '');
@@ -102,7 +106,15 @@ function Welcome() {
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? 'Copied' : 'Copy'}
             </Button>
-            <Button variant="primary" className="flex-1" onClick={() => navigate({ to: '/mail/$folder', params: { folder: 'inbox' } })}>
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={() => {
+                const next = takeAfterAuth();
+                if (next) window.location.assign(next);
+                else navigate({ to: '/mail/$folder', params: { folder: 'inbox' } });
+              }}
+            >
               Open Inbox
             </Button>
           </div>

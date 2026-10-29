@@ -17,7 +17,7 @@ export default defineConfig({
       // per-icon chunks: every screen is ready the moment the app boots.
       router: { codeSplittingOptions: { defaultBehavior: [] } },
       prerender: { enabled: true, crawlLinks: false, autoStaticPathsDiscovery: false },
-      pages: [{ path: '/' }, { path: '/login' }, { path: '/signup' }, { path: '/recover' }],
+      pages: [{ path: '/' }, { path: '/login' }, { path: '/signup' }, { path: '/recover' }, { path: '/developers' }],
     }),
     viteReact(),
   ],

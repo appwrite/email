@@ -16,3 +16,25 @@ export function forgetDevice() {
   queryClient.clear();
   clearPersistedCache();
 }
+
+// Where to return after signing in or creating an address, such as the OAuth
+// consent screen. Same-origin paths only.
+const AFTER_AUTH_KEY = 'ae:after-auth';
+
+export function setAfterAuth(path: string) {
+  try {
+    sessionStorage.setItem(AFTER_AUTH_KEY, path);
+  } catch {
+    // storage may be unavailable
+  }
+}
+
+export function takeAfterAuth(): string | null {
+  try {
+    const path = sessionStorage.getItem(AFTER_AUTH_KEY);
+    sessionStorage.removeItem(AFTER_AUTH_KEY);
+    return path && path.startsWith('/') && !path.startsWith('//') ? path : null;
+  } catch {
+    return null;
+  }
+}

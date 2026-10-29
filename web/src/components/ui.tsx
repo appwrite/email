@@ -182,14 +182,15 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cx(
-        'relative inline-flex h-[20px] w-[34px] shrink-0 items-center rounded-full border border-transparent transition-colors duration-200',
-        checked ? 'bg-fg' : 'bg-fill-2 dark:bg-line-strong',
+        'relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full transition-colors duration-200',
+        checked ? 'bg-success' : 'bg-fill-2 dark:bg-line-strong',
       )}
     >
+      {/* System-style switch: green when on, white knob with a soft shadow. */}
       <span
         className={cx(
-          'absolute left-[2px] h-[14px] w-[14px] rounded-full transition-transform duration-200',
-          checked ? 'translate-x-[14px] bg-bg' : 'bg-white dark:bg-fg-2',
+          'absolute left-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-transform duration-200 ease-apple',
+          checked && 'translate-x-[16px]',
         )}
       />
     </button>
@@ -234,95 +235,136 @@ export function Segmented<T extends string>({
 }
 
 // ---------------------------------------------------------------------------
-// Avatar (gradient initials, brand favicon via Appwrite Avatars)
+// Avatar (photo, brand icon or initials, resolved once and cached)
 // ---------------------------------------------------------------------------
 
-// Shows initials immediately, then swaps in the best image once it has loaded:
-// the person's photo (Appwrite Avatars, by SHA-256 email hash), else the
-// sender's brand icon (Avatars favicon). Verdicts are cached per device.
-function storedMap(key: string) {
-  try {
-    return new Map<string, boolean>(typeof localStorage === 'undefined' ? [] : JSON.parse(localStorage.getItem(key) || '[]'));
-  } catch {
-    return new Map<string, boolean>();
-  }
-}
-const timers: Record<string, ReturnType<typeof setTimeout>> = {};
-function remember(key: string, map: Map<string, boolean>, id: string, ok: boolean) {
-  map.set(id, ok);
-  clearTimeout(timers[key]);
-  timers[key] = setTimeout(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify([...map].slice(-1000)));
-    } catch {
-      // ignore
-    }
-  }, 1000);
-}
-
-const BRANDS_KEY = 'ae:brands';
-const PHOTOS_KEY = 'ae:photos';
-const brandCache = storedMap(BRANDS_KEY);
-const photoCache = storedMap(PHOTOS_KEY);
+// Avatars resolve once per address, to the person's photo (Appwrite Avatars,
+// by SHA-256 email hash), else the sender's brand icon, else initials. The
+// result, image included, is cached on the device, so an avatar renders in
+// its final form on first paint and never swaps midway.
+const AVATARS_KEY = 'ae:avatars:v1';
 const PHOTO_SIZE = 128;
-
-const hashes = new Map<string, Promise<string>>();
-function emailHash(email: string) {
-  const key = email.trim().toLowerCase();
-  let p = hashes.get(key);
-  if (!p) {
-    p = crypto.subtle
-      .digest('SHA-256', new TextEncoder().encode(key))
-      .then((d) => Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join(''));
-    hashes.set(key, p);
-  }
-  return p;
+const MAX_ENTRY = 48_000;
+// email -> 'p:<data url>' (photo), 'b:<data url>' (brand icon) or '' (initials)
+const avatarCache = new Map<string, string>(
+  (() => {
+    try {
+      return typeof localStorage === 'undefined' ? [] : JSON.parse(localStorage.getItem(AVATARS_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  })(),
+);
+let avatarSaveTimer: ReturnType<typeof setTimeout> | undefined;
+function rememberAvatar(email: string, value: string) {
+  avatarCache.delete(email);
+  avatarCache.set(email, value);
+  clearTimeout(avatarSaveTimer);
+  avatarSaveTimer = setTimeout(() => {
+    // Newest 400 entries; drop older ones until it fits the storage quota.
+    let entries = [...avatarCache].slice(-400);
+    while (entries.length) {
+      try {
+        localStorage.setItem(AVATARS_KEY, JSON.stringify(entries));
+        return;
+      } catch {
+        entries = entries.slice(Math.ceil(entries.length / 4));
+      }
+    }
+  }, 800);
 }
 
-// Avatars returns a neutral placeholder when there is no photo; it is the same
-// image for every unknown address, so one probe tells photos from placeholders.
+const fetchBytes = (url: string) =>
+  fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))).then((b) => new Uint8Array(b));
+
+const toDataUrl = (data: Uint8Array, type: string) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(new Blob([data as BlobPart], { type }));
+  });
+
+async function sha256(text: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Avatars returns the same neutral placeholder for every address without a
+// photo, so one probe tells real photos apart.
 let placeholder: Promise<Uint8Array> | null = null;
-const bytes = (url: string) => fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))).then((b) => new Uint8Array(b));
-function isPlaceholder(data: Uint8Array) {
-  placeholder ??= bytes(photoUrl('0'.repeat(64), PHOTO_SIZE));
-  return placeholder.then((p) => p.length === data.length && p.every((v, i) => v === data[i]));
+async function isPlaceholder(data: Uint8Array) {
+  placeholder ??= fetchBytes(photoUrl('0'.repeat(64), PHOTO_SIZE));
+  const p = await placeholder;
+  return p.length === data.length && p.every((v, i) => v === data[i]);
 }
 
-const photos = new Map<string, Promise<string | null>>();
-function resolvePhoto(email: string) {
+async function brandIcon(domain: string) {
+  const data = await fetchBytes(faviconUrl(domain));
+  const bitmap = await createImageBitmap(new Blob([data as BlobPart]));
+  const ok = bitmap.width >= 16;
+  bitmap.close();
+  return ok && data.length <= MAX_ENTRY ? `b:${await toDataUrl(data, 'image/png')}` : '';
+}
+
+const pending = new Map<string, Promise<string>>();
+function resolveAvatar(email: string): Promise<string> {
   const key = email.trim().toLowerCase();
-  let p = photos.get(key);
+  let p = pending.get(key);
   if (!p) {
-    p = emailHash(key).then(async (hash) => {
-      const url = photoUrl(hash, PHOTO_SIZE);
-      if (photoCache.get(key) === false) return null;
-      const data = await bytes(url);
-      const ok = !(await isPlaceholder(data));
-      remember(PHOTOS_KEY, photoCache, key, ok);
-      return ok ? URL.createObjectURL(new Blob([data], { type: 'image/webp' })) : null;
-    }).catch(() => null);
-    photos.set(key, p);
+    p = (async () => {
+      try {
+        const data = await fetchBytes(photoUrl(await sha256(key), PHOTO_SIZE));
+        if (!(await isPlaceholder(data)) && data.length <= MAX_ENTRY) return `p:${await toDataUrl(data, 'image/webp')}`;
+      } catch {
+        // fall through to the brand icon
+      }
+      const domain = brandDomain(key);
+      if (domain) return brandIcon(domain).catch(() => '');
+      return '';
+    })().then((value) => {
+      rememberAvatar(key, value);
+      return value;
+    });
+    pending.set(key, p);
   }
   return p;
 }
+
+/** Resolves avatars ahead of time, for example for a page of messages. */
+export function warmAvatars(emails: (string | undefined)[]) {
+  if (typeof crypto === 'undefined' || !crypto.subtle) return;
+  for (const e of emails) if (e && !avatarCache.has(e.trim().toLowerCase())) resolveAvatar(e);
+}
+
+// How long a new avatar may stay blank before settling on initials.
+const SETTLE_MS = 900;
 
 export function Avatar({ name, email, size = 36, className }: { name: string; email?: string; size?: number; className?: string }) {
-  const brand = email ? brandDomain(email) : null;
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(() => (brand ? brandCache.get(brand) === true : false));
-  const tryBrand = brand && brandCache.get(brand) !== false && !photo;
+  const key = email?.trim().toLowerCase() || '';
+  const [value, setValue] = useState<string | undefined>(() => (key ? avatarCache.get(key) : ''));
 
   useEffect(() => {
-    setPhoto(null);
-    if (!email || typeof crypto === 'undefined' || !crypto.subtle) return;
+    const cached = key ? avatarCache.get(key) : '';
+    setValue(cached);
+    if (cached !== undefined || typeof crypto === 'undefined' || !crypto.subtle) return;
+    // Unknown address: stay blank briefly while it resolves, then show the
+    // final image. If that takes too long, settle on initials for this view.
     let alive = true;
-    resolvePhoto(email).then((url) => alive && setPhoto(url));
+    const timer = setTimeout(() => alive && setValue(''), SETTLE_MS);
+    resolveAvatar(key).then((v) => {
+      if (!alive) return;
+      clearTimeout(timer);
+      setValue((current) => (current === undefined ? v : current));
+    });
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
-  }, [email]);
+  }, [key]);
 
-  const showing = !!photo || loaded;
+  const photo = value?.startsWith('p:') ? value.slice(2) : null;
+  const brand = value?.startsWith('b:') ? value.slice(2) : null;
   return (
     <span
       className={cx('relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold text-fg-2', className)}
@@ -330,32 +372,18 @@ export function Avatar({ name, email, size = 36, className }: { name: string; em
         width: size,
         height: size,
         fontSize: size * 0.38,
-        background: showing ? 'var(--card)' : 'var(--fill-2)',
+        background: brand ? 'var(--card)' : 'var(--fill-2)',
         boxShadow: 'inset 0 0 0 1px var(--line)',
       }}
       aria-hidden
     >
-      {!showing && <span>{initials(name || email || '?')}</span>}
       {photo ? (
-        <img src={photo} alt="" width={size} height={size} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        tryBrand && (
-          <img
-            src={faviconUrl(brand)}
-            alt=""
-            width={size * 0.56}
-            height={size * 0.56}
-            loading="lazy"
-            onError={() => remember(BRANDS_KEY, brandCache, brand, false)}
-            onLoad={(e) => {
-              const ok = (e.target as HTMLImageElement).naturalWidth >= 16;
-              remember(BRANDS_KEY, brandCache, brand, ok);
-              setLoaded(ok);
-            }}
-            className={cx('rounded-[4px]', !loaded && 'absolute opacity-0')}
-          />
-        )
-      )}
+        <img src={photo} alt="" width={size} height={size} decoding="sync" className="h-full w-full object-cover" />
+      ) : brand ? (
+        <img src={brand} alt="" width={size * 0.56} height={size * 0.56} decoding="sync" className="rounded-[4px]" />
+      ) : value === '' ? (
+        <span>{initials(name || email || '?')}</span>
+      ) : null}
     </span>
   );
 }

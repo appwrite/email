@@ -388,7 +388,7 @@ export function Reader({
           className={cx('mx-auto max-w-[860px] px-5 pb-28 pt-6 sm:px-8', ready ? 'opacity-100 transition-opacity duration-100' : 'pointer-events-none opacity-0')}
           aria-busy={!ready}
         >
-          <h1 className="text-balance font-display font-bold text-[26px] leading-tight tracking-[-0.015em]">{current.subject || '(no subject)'}</h1>
+          <h1 className="text-balance font-display font-bold text-[28px] leading-[1.15] tracking-[-0.025em]">{current.subject || '(no subject)'}</h1>
           {(threadLabels.length > 0 || visible.length > 1) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {visible.length > 1 && <span className="text-[11.5px] text-fg-3">{visible.length} messages</span>}
@@ -408,7 +408,7 @@ export function Reader({
 
           <StatusBanner row={current} />
 
-          <div className="mt-5 space-y-3">
+          <div className="mt-4">
             {visible.map((row, i) => (
               <MessageCard
                 key={row.$id}
@@ -431,18 +431,24 @@ export function Reader({
           </div>
 
           {folder !== 'scheduled' && (
-            <div className="mt-6 flex flex-wrap gap-2 no-print">
-              <Button onClick={() => reply(last, mailbox, false, settings?.signature)}>
-                <Reply className="h-4 w-4" /> Reply
-              </Button>
+            <div className="mt-2 flex items-center gap-2 no-print">
+              <button
+                onClick={() => reply(last, mailbox, false, settings?.signature)}
+                className="icon-hover group flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full bg-fill px-5 text-left text-[14.5px] text-fg-3 transition-colors hover:bg-fill-2 hover:text-fg-2"
+              >
+                <span className="icon-anim">
+                  <Reply className="h-[18px] w-[18px]" />
+                </span>
+                <span className="truncate">Reply to {displayName({ name: last.fromName, email: last.fromEmail })}…</span>
+              </button>
               {(last.to?.length || 0) + (last.cc?.length || 0) > 1 && (
-                <Button onClick={() => reply(last, mailbox, true, settings?.signature)}>
-                  <ReplyAll className="h-4 w-4" /> Reply All
-                </Button>
+                <IconButton label="Reply all" onClick={() => reply(last, mailbox, true, settings?.signature)} className="h-12 w-12 rounded-full bg-fill hover:bg-fill-2">
+                  <ReplyAll className="h-[18px] w-[18px]" />
+                </IconButton>
               )}
-              <Button onClick={() => forward(last, settings?.signature)}>
-                <Forward className="h-4 w-4" /> Forward
-              </Button>
+              <IconButton label="Forward" onClick={() => forward(last, settings?.signature)} className="h-12 w-12 rounded-full bg-fill hover:bg-fill-2">
+                <Forward className="h-[18px] w-[18px]" />
+              </IconButton>
             </div>
           )}
         </div>
@@ -589,33 +595,54 @@ function MessageCard({
   });
 
   return (
-    <article
-      className={cx('@container rounded-xl border border-line bg-card transition-colors dark:border-line-strong/60', !expanded && 'hover:bg-fill')}
-    >
-      <div className={cx('flex cursor-default gap-3 px-4', expanded ? 'pt-4' : 'py-3')} onClick={inThread ? onToggle : undefined}>
-        <Avatar name={name} email={row.fromEmail} size={40} />
+    <article className={cx('@container group/msg', inThread && 'border-t border-line first:border-t-0')}>
+      <div
+        className={cx(
+          'flex cursor-default gap-3.5 rounded-xl',
+          expanded ? 'pt-5' : '-mx-3 my-1 px-3 py-3 transition-colors hover:bg-fill',
+        )}
+        onClick={inThread ? onToggle : undefined}
+      >
+        <Avatar name={name} email={row.fromEmail} size={expanded ? 44 : 36} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="min-w-0 shrink-0 truncate text-[14px] font-semibold @max-lg:shrink">{name}</span>
-            {expanded && <span className="hidden min-w-0 truncate text-[11.5px] text-fg-3 @lg:inline">{row.fromEmail}</span>}
-            <span className="ml-auto shrink-0 text-[12px] text-fg-3" title={fullDate(row.date)}>
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{name}</span>
+                {!expanded && <span className="truncate text-[13px] text-fg-3">{row.snippet}</span>}
+              </div>
+              {expanded && (
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-fg-3">
+                  {/* The address gives way first, so the recipients stay readable. */}
+                  <span className="hidden min-w-0 shrink truncate @md:inline">{row.fromEmail}</span>
+                  <span className="hidden shrink-0 @md:inline">·</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDetails((v) => !v);
+                    }}
+                    className="flex min-w-0 max-w-[60%] shrink-0 items-center gap-1 rounded-md text-left text-fg-2 hover:text-fg"
+                  >
+                    <span className="truncate">to {recipients.join(', ') || '—'}</span>
+                    <ChevronDown className={cx('h-3.5 w-3.5 shrink-0 transition-transform', details && 'rotate-180')} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <span className="shrink-0 text-[12.5px] tabular-nums text-fg-3" title={fullDate(row.date)}>
               {expanded ? shortDateTime(row.date) : listDate(row.date)}
             </span>
+            {expanded && inThread && (
+              <div className="-my-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/msg:opacity-100 no-print" onClick={(e) => e.stopPropagation()}>
+                <IconButton size="sm" label="Reply" onClick={() => onReply(false)}>
+                  <Reply className="h-4 w-4" />
+                </IconButton>
+                <IconButton size="sm" label="Forward" onClick={onForward}>
+                  <Forward className="h-4 w-4" />
+                </IconButton>
+              </div>
+            )}
           </div>
-          {expanded ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDetails((v) => !v);
-              }}
-              className="mt-0.5 flex max-w-full items-center gap-1 text-left text-[12.5px] text-fg-2"
-            >
-              <span className="truncate">to {recipients.join(', ') || '—'}</span>
-              <ChevronDown className={cx('h-3 w-3 shrink-0 transition-transform', details && 'rotate-180')} />
-            </button>
-          ) : (
-            <div className="truncate text-[13px] text-fg-2">{row.snippet}</div>
-          )}
         </div>
       </div>
       <AnimatePresence initial={false}>
@@ -624,7 +651,7 @@ function MessageCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="mx-4 mt-3 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 overflow-hidden rounded-lg border border-line bg-sunken px-3 py-2 text-[12px] dark:border-line-strong/60"
+            className="mt-3 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 overflow-hidden rounded-xl bg-fill px-4 py-3 text-[12.5px] sm:ml-[58px]"
           >
             <dt className="text-[12px] text-fg-3 leading-[18px]">From</dt>
             <dd className="break-all">{row.fromName ? `${row.fromName} <${row.fromEmail}>` : row.fromEmail}</dd>
@@ -658,22 +685,9 @@ function MessageCard({
         )}
       </AnimatePresence>
       {expanded && (
-        <div className="px-4 pb-4 pt-4">
+        <div className="pb-7 pt-5">
           <FullBody row={row} collapseQuotes={inThread} />
           <Attachments items={attachments} />
-          {inThread && (
-            <div className="mt-3 flex gap-1 no-print">
-              <IconButton size="sm" label="Reply" onClick={() => onReply(false)}>
-                <Reply className="h-4 w-4" />
-              </IconButton>
-              <IconButton size="sm" label="Reply all" onClick={() => onReply(true)}>
-                <ReplyAll className="h-4 w-4" />
-              </IconButton>
-              <IconButton size="sm" label="Forward" onClick={onForward}>
-                <Forward className="h-4 w-4" />
-              </IconButton>
-            </div>
-          )}
         </div>
       )}
     </article>

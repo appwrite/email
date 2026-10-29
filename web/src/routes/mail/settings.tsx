@@ -6,7 +6,9 @@ import {
   Bell,
   CalendarOff,
   Check,
+  Code2,
   Copy,
+  ExternalLink,
   Filter,
   Forward,
   KeyRound,
@@ -25,7 +27,9 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Field, IconButton, Input, Segmented, Sheet, Switch, cx } from '~/components/ui';
 import { callApi } from '~/lib/api';
+import { API_SCOPES, API_URL, INSTALL, MCP_URL } from '~/lib/developer';
 import { DATABASE_ID, TABLES, account, qrUrl, tablesDB, type Rule, type SettingsRow } from '~/lib/appwrite';
+import { Query, type Models } from 'appwrite';
 import { LABEL_COLORS } from '~/lib/folders';
 import { isEmail, relativeTime } from '~/lib/format';
 import { useMail } from '~/lib/mail-context';
@@ -49,6 +53,7 @@ const SECTIONS = [
   ['labels', 'Labels', Tag],
   ['blocked', 'Blocked', Ban],
   ['security', 'Security', ShieldCheck],
+  ['developer', 'API & MCP', Code2],
 ] as const;
 
 function Group({ id, title, footer, children }: { id: string; title: string; footer?: ReactNode; children: ReactNode }) {
@@ -136,6 +141,7 @@ function SettingsPage() {
             </>
           )}
           <SecuritySection />
+          <DeveloperSection />
           <DangerSection />
         </div>
       </div>
@@ -825,6 +831,158 @@ function SecuritySection() {
         </div>
       </Sheet>
     </Group>
+  );
+}
+
+type ApiKeyRow = Models.Row & { name: string; prefix: string; scopes: string[]; lastUsedAt: string | null };
+
+function CopyField({ value, mono = true }: { value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-fill py-1.5 pl-3 pr-1.5">
+      <code className={cx('min-w-0 flex-1 truncate text-[13px]', mono ? 'font-mono' : '')}>{value}</code>
+      <IconButton
+        label={copied ? 'Copied' : 'Copy'}
+        size="sm"
+        onClick={() => {
+          navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+      </IconButton>
+    </div>
+  );
+}
+
+function DeveloperSection() {
+  const { user } = useMail();
+  const keys = useQuery({
+    queryKey: ['apikeys', user.$id],
+    queryFn: async () =>
+      (
+        await tablesDB.listRows<ApiKeyRow>({
+          databaseId: DATABASE_ID,
+          tableId: TABLES.apikeys,
+          queries: [Query.equal('ownerId', user.$id), Query.orderDesc('$createdAt'), Query.limit(50)],
+        })
+      ).rows,
+  });
+  const [name, setName] = useState('');
+  const [scopes, setScopes] = useState<string[]>(API_SCOPES.map(([s]) => s));
+  const [creating, setCreating] = useState(false);
+  const [secret, setSecret] = useState('');
+
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const res = await callApi<{ secret: string }>('POST', '/keys', { name: name.trim() || 'API key', scopes });
+      setSecret(res.secret);
+      setName('');
+      keys.refetch();
+    } catch (err: any) {
+      toast({ title: 'Could not create key', description: err.message, tone: 'error' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <>
+      <Group
+        id="developer"
+        title="MCP server"
+        footer={
+          <>
+            Connect Claude, ChatGPT, Cursor or VS Code to your mailbox. You sign in and approve access once; nothing to copy. See the{' '}
+            <a href="/developers" className="text-accent">
+              developer docs
+            </a>
+            .
+          </>
+        }
+      >
+        <div className="space-y-3 px-4 py-3.5">
+          <CopyField value={MCP_URL} />
+          <div className="flex flex-wrap gap-2">
+            <a href={INSTALL.cursor} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-fill px-3 text-[13px] font-medium text-fg hover:bg-fill-2">
+              Add to Cursor
+            </a>
+            <a href={INSTALL.vscode} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-fill px-3 text-[13px] font-medium text-fg hover:bg-fill-2">
+              Add to VS Code
+            </a>
+            <a
+              href="https://claude.ai/settings/connectors"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-fill px-3 text-[13px] font-medium text-fg hover:bg-fill-2"
+            >
+              Add to Claude <ExternalLink className="h-3.5 w-3.5 text-fg-3" />
+            </a>
+          </div>
+        </div>
+      </Group>
+
+      <Group id="apikeys" title="API keys" footer={<>For scripts and servers calling {API_URL}. A key acts as you with the permissions you pick.</>}>
+        {secret && (
+          <div className="space-y-2 bg-accent-soft px-4 py-3.5">
+            <div className="text-[13.5px] font-medium">Copy your new key now. It won’t be shown again.</div>
+            <CopyField value={secret} />
+            <button className="text-[13px] font-medium text-accent" onClick={() => setSecret('')}>
+              Done
+            </button>
+          </div>
+        )}
+        {(keys.data || []).map((k) => (
+          <Item
+            key={k.$id}
+            label={
+              <span className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-fg-3" /> {k.name}
+                <code className="font-mono text-[12px] text-fg-3">{k.prefix}…</code>
+              </span>
+            }
+            hint={`${(k.scopes || []).join(', ')} · ${k.lastUsedAt ? `used ${relativeTime(k.lastUsedAt)}` : `created ${relativeTime(k.$createdAt)}`}`}
+          >
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-danger"
+              onClick={async () => {
+                await tablesDB.deleteRow({ databaseId: DATABASE_ID, tableId: TABLES.apikeys, rowId: k.$id });
+                keys.refetch();
+                toast({ title: 'Key revoked', tone: 'success' });
+              }}
+            >
+              Revoke
+            </Button>
+          </Item>
+        ))}
+        <form onSubmit={create} className="space-y-3 px-4 py-3.5">
+          <div className="flex gap-2">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Key name, like “Zapier”" className="flex-1" maxLength={64} />
+            <Button type="submit" variant="primary" loading={creating} disabled={!scopes.length}>
+              Create key
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {API_SCOPES.map(([scope, label]) => (
+              <label key={scope} className="flex cursor-pointer items-center gap-2 text-[13px] text-fg-2">
+                <input
+                  type="checkbox"
+                  checked={scopes.includes(scope)}
+                  onChange={(e) => setScopes((s) => (e.target.checked ? [...s, scope] : s.filter((x) => x !== scope)))}
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                <span title={label}>{scope}</span>
+              </label>
+            ))}
+          </div>
+        </form>
+      </Group>
+    </>
   );
 }
 

@@ -6,7 +6,7 @@ import { AuthLayout, FormError } from '~/components/AuthLayout';
 import { Button, Field, Input, Segmented } from '~/components/ui';
 import { account } from '~/lib/appwrite';
 import { fetchAccount, queryClient } from '~/lib/queries';
-import { forgetDevice } from '~/lib/session';
+import { forgetDevice, takeAfterAuth } from '~/lib/session';
 
 export const Route = createFileRoute('/login')({
   head: () => ({ meta: [{ title: 'Sign in — Mail' }] }),
@@ -29,7 +29,10 @@ function Login() {
 
   useEffect(() => {
     fetchAccount().then((user) => {
-      if (user) navigate({ to: '/mail/$folder', params: { folder: 'inbox' }, replace: true });
+      if (!user) return;
+      const next = takeAfterAuth();
+      if (next) window.location.replace(next);
+      else navigate({ to: '/mail/$folder', params: { folder: 'inbox' }, replace: true });
     });
   }, [navigate]);
 
@@ -39,7 +42,9 @@ function Login() {
       // Start clean: nothing cached under an earlier session may be shown.
       forgetDevice();
       queryClient.setQueryData(['account'], user);
-      navigate({ to: '/mail/$folder', params: { folder: 'inbox' } });
+      const next = takeAfterAuth();
+      if (next) window.location.assign(next);
+      else navigate({ to: '/mail/$folder', params: { folder: 'inbox' } });
     } catch (e: any) {
       if (e.type === 'user_more_factors_required') {
         const challenge = await account.createMfaChallenge({ factor: AuthenticationFactor.Totp });

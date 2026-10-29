@@ -1,11 +1,11 @@
-// Creates or updates the three functions and deploys functions/mail to each.
+// Creates or updates the functions and deploys functions/mail to each.
 //
-//   APPWRITE_API_KEY=... node scripts/deploy-functions.mjs [inbox api maintenance]
+//   APPWRITE_API_KEY=... node scripts/deploy-functions.mjs [inbox api public maintenance]
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Client, Functions, Users } from 'node-appwrite';
+import { Client, Functions, Proxy, Users } from 'node-appwrite';
 import { InputFile } from 'node-appwrite/file';
 import { ENDPOINT, PROJECT_ID } from './config.mjs';
 
@@ -18,6 +18,7 @@ if (!key) {
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(key);
 const functions = new Functions(client);
 const users = new Users(client);
+const proxy = new Proxy(client);
 
 const DATA_SCOPES = [
   'rows.read', 'rows.write', 'files.read', 'files.write', 'tokens.read', 'tokens.write',
@@ -45,6 +46,19 @@ const FUNCTIONS = [
     schedule: '',
     scopes: [...DATA_SCOPES, 'users.write'],
     runtimeSpecification: 's-1vcpu-1gb',
+  },
+  {
+    // Public REST API and remote MCP server; callers authenticate with OAuth
+    // access tokens or personal API keys, so anyone may execute it.
+    functionId: 'public',
+    name: 'Public API and MCP',
+    entrypoint: 'src/public.js',
+    execute: ['any'],
+    timeout: 30,
+    schedule: '',
+    scopes: DATA_SCOPES,
+    runtimeSpecification: 's-1vcpu-1gb',
+    domains: (process.env.PUBLIC_DOMAINS || 'email-api.appwrite.network,mail-api.appwrite.network').split(','),
   },
   {
     functionId: 'maintenance',
@@ -120,6 +134,21 @@ async function waitForDeployment(functionId, deploymentId) {
   throw new Error(`Timed out waiting for ${functionId} deployment`);
 }
 
+// Gives a function its first available domain from the list, once.
+async function ensureDomain(functionId, domains) {
+  const { rules } = await proxy.listRules();
+  const existing = rules.find((r) => r.deploymentResourceId === functionId && domains.includes(r.domain));
+  if (existing) return console.log(`  ${functionId} at https://${existing.domain}`);
+  for (const domain of domains) {
+    try {
+      await proxy.createFunctionRule({ domain, functionId });
+      return console.log(`+ domain https://${domain} → ${functionId}`);
+    } catch (e) {
+      console.log(`  ${domain}: ${e.message}`);
+    }
+  }
+}
+
 await ensureRecipientsUser();
 const code = packageCode();
 
@@ -139,6 +168,7 @@ await Promise.all(
       activate: true,
     });
     await waitForDeployment(f.functionId, deployment.$id);
+    if (f.domains) await ensureDomain(f.functionId, f.domains);
     const fn = await functions.get({ functionId: f.functionId });
     console.log(
       `✓ ${f.functionId} deployed (${deployment.$id})${fn.emailEnabled ? ` · email trigger on` : ''}`,

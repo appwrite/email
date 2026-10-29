@@ -10,13 +10,13 @@ A fast, Apple-style email service built entirely on Appwrite. Every incoming ema
 
 | Service | Used for |
 | --- | --- |
-| **Auth** | Email/password, email-code sign-in, verification, password recovery, TOTP two-factor with recovery codes, session management, account prefs (theme/accent sync across devices) |
-| **Functions** | `inbox` — email trigger that parses, threads, applies rules, stores attachments, sends vacation replies and forwards. `api` — HTTP API for claiming an address, sending, scheduling, emptying trash and deleting the account. `maintenance` — cron every minute for send-later, snooze wake-ups, delivery status and trash purging |
-| **Databases (TablesDB)** | `mailboxes`, `settings`, `messages`, `drafts`, `contacts`, `labels`, with row-level permissions, a full-text search index and bulk row updates/deletes |
+| **Auth** | Email/password, email-code sign-in, verification, password recovery, TOTP two-factor with recovery codes, session management, account prefs, and the **OAuth2 server** that signs in API and MCP clients |
+| **Functions** | `inbox` — email trigger that parses, threads, applies rules, stores attachments, sends vacation replies and forwards. `api` — app API for claiming an address, sending, scheduling, API keys and account deletion. `public` — public REST API and remote MCP server. `maintenance` — cron every minute for send-later, snooze wake-ups, delivery status and trash purging |
+| **Databases (TablesDB)** | `mailboxes`, `settings`, `messages`, `drafts`, `contacts`, `labels`, `apikeys`, with row-level permissions, a full-text search index and bulk row updates/deletes |
 | **Storage** | `attachments` bucket (encrypted, antivirus, 25 MB) plus file tokens so inline `cid:` images and downloads work from plain URLs |
 | **Messaging** | Outbound mail to external addresses, with Reply-To set to the sender's Appwrite Email address so replies come back in |
 | **Realtime** | New mail, read/star/move changes, drafts, labels and settings sync instantly across tabs |
-| **Avatars** | Sender brand icons (favicons), QR codes for your address and the 2FA setup |
+| **Avatars** | Sender photos (by email hash) and brand icons, QR codes for your address and the 2FA setup |
 | **Sites** | Static TanStack Start SPA with prerendered landing and auth pages, served from `email.appwrite.network` |
 
 ## Features
@@ -26,6 +26,17 @@ Three-pane mail with conversation threading, unread/starred/attachment filters, 
 ## Address format
 
 Appwrite routes any local part at `<FUNCTION_ID>-<PROJECT_ID>.appwrite.email` to that function, so every user gets `<handle>@inbox-6ae21f6271db427f12bc.appwrite.email`, and `<handle>+anything@…` reaches the same mailbox. The earlier `<handle>+inbox@<PROJECT_ID>.appwrite.email` form is still routed and still delivers. For bare `<handle>@yourdomain.com` addresses, connect a custom email domain to the `inbox` function and add it to the function's `CUSTOM_DOMAINS` variable.
+
+## API and MCP
+
+The `public` function serves a REST API and a remote MCP server (Streamable HTTP) at `https://email-api.appwrite.network`. Docs live at [/developers](https://email.appwrite.network/developers), and the OpenAPI spec at `/openapi.json`.
+
+- **MCP:** add `https://email-api.appwrite.network/mcp` to Claude, ChatGPT, Cursor or VS Code. The server answers unauthenticated calls with a `WWW-Authenticate` challenge pointing to its protected resource metadata, the client registers itself with the project's OAuth2 server (dynamic client registration), and the user signs in and approves scopes on the app's consent screen at `/oauth/consent`. Tools: `get_mailbox`, `list_messages`, `read_message`, `read_thread`, `list_labels`, `send_email`, `reply_to_email`, `update_messages`.
+- **REST:** `GET /v1/me`, `GET /v1/messages`, `GET /v1/messages/{id}`, `GET /v1/threads/{id}`, `GET /v1/labels`, `POST /v1/messages`, `PATCH /v1/messages[/{id}]`, `DELETE /v1/messages/{id}`.
+- **Auth:** OAuth 2.1 access tokens from the Appwrite project (RS256 JWTs verified against its JWKS, audience checked), or personal API keys (`mk_…`) created in Settings and stored as SHA-256 hashes.
+- **Scopes:** `mail.read`, `mail.send`, `mail.modify`.
+
+To enable the OAuth2 server on your own project, set the authorization URL to `https://<your-site>/oauth/consent` and allow the scopes `openid profile email offline_access mail.read mail.send mail.modify` (Auth → OAuth2 server, or `project.updateOAuth2Server`).
 
 ## Spam
 

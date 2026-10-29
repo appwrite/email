@@ -11,4 +11,5 @@ export const TABLES = {
   drafts: 'drafts',
   contacts: 'contacts',
   labels: 'labels',
+  apikeys: 'apikeys',
 };

@@ -8,7 +8,6 @@ import {
   Moon,
   PenSquare,
   Plus,
-  Search,
   Settings,
   Sun,
   Users,
@@ -20,7 +19,7 @@ import { signOut } from '~/lib/session';
 import { createLabel, findCachedRow, makeView, prefetchFolder, updateMessages, useCounts, useLabels } from '~/lib/queries';
 import { openComposer, prefsStore, toast, uiStore, updatePrefs } from '~/lib/store';
 import { EmailLockup } from './brand';
-import { Avatar, IconButton, Kbd, MenuItem, MenuSeparator, Popover, cx } from './ui';
+import { Avatar, IconButton, MenuItem, MenuSeparator, Popover, cx } from './ui';
 
 export const DRAG_TYPE = 'application/x-appwrite-email';
 
@@ -118,20 +117,11 @@ export function Sidebar() {
 
   const content = (
     <div className="flex h-full flex-col">
-      <div className="flex h-[52px] shrink-0 items-center justify-between px-4">
+      {/* One search lives above the message list; ⌘K still opens the command palette. */}
+      <div className="flex h-[52px] shrink-0 items-center justify-between pl-4 pr-3">
         <Link to="/mail/$folder" params={{ folder: 'inbox' }} aria-label="Inbox">
           <EmailLockup size={18} />
         </Link>
-      </div>
-      <div className="flex shrink-0 gap-2 px-3 pb-2">
-        <button
-          onClick={() => uiStore.set({ palette: true })}
-          className="flex h-8 flex-1 items-center gap-2 rounded-md border border-line bg-transparent px-2.5 text-[13px] text-fg-3 transition hover:border-line-strong hover:text-fg-2 dark:border-line-strong dark:bg-fill/50"
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span className="flex-1 text-left">Search</span>
-          <Kbd>⌘K</Kbd>
-        </button>
         <IconButton
           label="New message"
           title="New message (C)"

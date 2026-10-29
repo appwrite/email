@@ -29,6 +29,7 @@ export const TABLES = {
   drafts: 'drafts',
   contacts: 'contacts',
   labels: 'labels',
+  apikeys: 'apikeys',
 } as const;
 
 export const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);

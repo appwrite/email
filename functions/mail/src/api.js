@@ -4,18 +4,11 @@ import { ID, Permission, Query, Role } from 'node-appwrite';
 import { BUCKET_ID, DATABASE_ID, TABLES, services } from './lib/appwrite.js';
 import { HANDLE_RE, RESERVED_HANDLES, mailboxAddress, parseAddress } from './lib/address.js';
 import { htmlToText, searchTextOf, snippetOf, topicOf, truncate } from './lib/content.js';
+import { randomBytes } from 'node:crypto';
+import { API_SCOPES, hashKey } from './lib/auth.js';
+import { HttpError, getMailbox, loadAttachments, readInput, senderName } from './lib/compose.js';
 import { deliver, getRowOrNull, outboundStatus, parseJson, sendMessage } from './lib/mail.js';
 import { APP_NAME, welcomeEmail } from './lib/welcome.js';
-
-class HttpError extends Error {
-  constructor(code, message) {
-    super(message);
-    this.code = code;
-  }
-}
-
-const MAX_RECIPIENTS = 50;
-const MAX_ATTACHMENTS = 10;
 
 function validateHandle(handle) {
   if (!HANDLE_RE.test(handle || '')) {
@@ -23,58 +16,6 @@ function validateHandle(handle) {
   }
   if (RESERVED_HANDLES.has(handle)) return 'That address is reserved.';
   return null;
-}
-
-async function getMailbox(svc, userId) {
-  const mailbox = await getRowOrNull(svc.tablesDB, TABLES.mailboxes, userId);
-  if (!mailbox) throw new HttpError(404, 'Create your address first.');
-  return mailbox;
-}
-
-function parseRecipients(list, field) {
-  if (!Array.isArray(list)) return [];
-  return list.map((value) => {
-    const a = parseAddress(value);
-    if (!a) throw new HttpError(400, `“${value}” in ${field} is not a valid email address.`);
-    return a;
-  });
-}
-
-// Confirms the user can read every attachment they want to send.
-async function loadAttachments(svc, userId, ids) {
-  if (!Array.isArray(ids)) return [];
-  if (ids.length > MAX_ATTACHMENTS) throw new HttpError(400, `Attach up to ${MAX_ATTACHMENTS} files.`);
-  return Promise.all(
-    ids.map(async (id) => {
-      const file = await svc.storage.getFile({ bucketId: BUCKET_ID, fileId: id });
-      if (!file.$permissions.includes(`read("user:${userId}")`)) throw new HttpError(403, `No access to ${file.name}.`);
-      return { id: file.$id, name: file.name, size: file.sizeOriginal, contentType: file.mimeType };
-    }),
-  );
-}
-
-function readInput(body) {
-  const input = {
-    to: parseRecipients(body.to, 'To'),
-    cc: parseRecipients(body.cc, 'Cc'),
-    bcc: parseRecipients(body.bcc, 'Bcc'),
-    subject: truncate(String(body.subject || ''), 998),
-    html: String(body.html || ''),
-    attachments: Array.isArray(body.attachments) ? body.attachments.map(String) : [],
-    inReplyTo: truncate(String(body.inReplyTo || ''), 255),
-    refs: Array.isArray(body.refs) ? body.refs.map(String).slice(-20) : [],
-    threadId: body.threadId ? truncate(String(body.threadId), 64) : '',
-  };
-  const count = input.to.length + input.cc.length + input.bcc.length;
-  if (!count) throw new HttpError(400, 'Add at least one recipient.');
-  if (count > MAX_RECIPIENTS) throw new HttpError(400, `Send to up to ${MAX_RECIPIENTS} recipients at once.`);
-  if (input.html.length > 4 * 1024 * 1024) throw new HttpError(413, 'This message is too large.');
-  return input;
-}
-
-async function senderName(svc, userId, mailbox) {
-  const user = await svc.users.get({ userId });
-  return user.name || mailbox.name || mailbox.handle;
 }
 
 async function forEachRow(svc, tableId, queries, fn) {
@@ -286,6 +227,29 @@ const routes = {
     return { updated };
   },
 
+  // Personal API key for the public REST API and MCP server. The secret is
+  // returned once; only its hash is stored.
+  'POST /keys': async ({ svc, userId, body }) => {
+    const name = truncate(String(body.name || '').trim(), 64) || 'API key';
+    const scopes = (Array.isArray(body.scopes) ? body.scopes : API_SCOPES).filter((s) => API_SCOPES.includes(s));
+    if (!scopes.length) throw new HttpError(400, 'Pick at least one permission.');
+    const existing = await svc.tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.apikeys,
+      queries: [Query.equal('ownerId', userId), Query.limit(1)],
+    });
+    if (existing.total >= 20) throw new HttpError(400, 'You can have up to 20 keys. Revoke one first.');
+    const secret = `mk_${randomBytes(24).toString('base64url')}`;
+    const row = await svc.tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.apikeys,
+      rowId: ID.unique(),
+      data: { ownerId: userId, name, prefix: secret.slice(0, 10), hash: hashKey(secret), scopes },
+      permissions: [Permission.read(Role.user(userId)), Permission.delete(Role.user(userId))],
+    });
+    return { key: { ...row, hash: undefined }, secret };
+  },
+
   'POST /trash/empty': async ({ svc, userId }) => {
     const queries = [Query.equal('ownerId', userId), Query.equal('folder', ['trash', 'spam'])];
     const rows = [];
@@ -301,7 +265,7 @@ const routes = {
     await forEachRow(svc, TABLES.messages, [...owned, Query.select(['$id', 'attachments'])], (r) => rows.push(r));
     await forEachRow(svc, TABLES.drafts, [...owned, Query.select(['$id', 'attachments'])], (r) => rows.push(r));
     await deleteFilesOf(svc, rows);
-    for (const tableId of [TABLES.messages, TABLES.drafts, TABLES.contacts, TABLES.labels]) {
+    for (const tableId of [TABLES.messages, TABLES.drafts, TABLES.contacts, TABLES.labels, TABLES.apikeys]) {
       await svc.tablesDB.deleteRows({ databaseId: DATABASE_ID, tableId, queries: owned });
     }
     for (const tableId of [TABLES.settings, TABLES.mailboxes]) {

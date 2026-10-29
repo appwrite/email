@@ -9,6 +9,7 @@ export const TABLES = {
   drafts: 'drafts',
   contacts: 'contacts',
   labels: 'labels',
+  apikeys: 'apikeys',
 };
 
 // Function that owns the inbound addresses: <handle>@inbox-<project>.appwrite.email
