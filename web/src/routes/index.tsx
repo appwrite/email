@@ -76,11 +76,12 @@ const pillSecondary = cx(pill, 'text-accent hover:underline');
 function Header() {
   return (
     <header className="vibrancy sticky top-0 z-50 border-b border-line/70 bg-[color-mix(in_srgb,var(--bg)_78%,transparent)]">
-      <div className="mx-auto flex h-12 max-w-6xl items-center gap-8 px-4 sm:px-6">
+      <div className="relative mx-auto flex h-12 max-w-6xl items-center gap-8 px-4 sm:px-6">
         <Link to="/" aria-label={`${APP_NAME} home`}>
           <EmailLockup size={22} />
         </Link>
-        <nav className="hidden flex-1 items-center justify-center gap-7 text-[12.5px] text-fg-2 md:flex">
+        {/* Centered on the header itself, not on the space between logo and buttons. */}
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 text-[12.5px] text-fg-2 md:flex">
           {[
             ['#own', 'Open source'],
             ['#deploy', 'Self-host'],
