@@ -8,7 +8,9 @@ import {
   CheckCircle2,
   Clock,
   Cloud,
+  Bot,
   Code2,
+  Copy,
   Database,
   Download,
   EyeOff,
@@ -22,6 +24,7 @@ import {
   Search,
   Send,
   Server,
+  Plug,
   ShieldAlert,
   Star,
   Trash2,
@@ -32,6 +35,7 @@ import { SoftLights } from '~/components/AuthLayout';
 import { APP_NAME, AppwriteLogomark, AppwriteLogotype, EmailLockup, EmailMark } from '~/components/brand';
 import { Kbd, cx } from '~/components/ui';
 import { MAIL_DOMAIN } from '~/lib/appwrite';
+import { INSTALL, MCP_URL, OPENAPI_URL } from '~/lib/developer';
 
 export const Route = createFileRoute('/')({
   component: Landing,
@@ -83,10 +87,10 @@ function Header() {
         {/* Centered on the header itself, not on the space between logo and buttons. */}
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 text-[12.5px] text-fg-2 md:flex">
           {[
+            ['#developers', 'API & MCP'],
             ['#own', 'Open source'],
             ['#deploy', 'Self-host'],
             ['#features', 'Features'],
-            ['/developers', 'Developers'],
           ].map(([href, label]) => (
             <a key={href} href={href} className="transition hover:text-fg">
               {label}
@@ -291,18 +295,20 @@ function Hero() {
           Email you actually own.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-pretty text-[19px] leading-relaxed text-fg-2 sm:text-[21px]">
-          A beautifully simple, open-source inbox. Your mail lives in your own database, on Appwrite Cloud or on your own Appwrite instance.
+          A beautifully simple, open-source inbox with a built-in API and MCP server, so your AI can read, triage and reply for you. Runs on
+          Appwrite Cloud or your own Appwrite.
         </p>
         <div className="mt-9 flex flex-col items-center gap-5 sm:flex-row">
           <Link to="/signup" className={cx(pillPrimary, 'h-11 px-7 text-[16px]')}>
             Get your free address
           </Link>
-          <a href="#deploy" className={cx(pillSecondary, 'h-11 text-[16px]')}>
-            Run your own <ArrowRight className="h-4 w-4" />
+          <a href="#developers" className={cx(pill, 'h-11 bg-fill px-6 text-[16px] text-fg hover:bg-fill-2')}>
+            <Bot className="h-[18px] w-[18px] text-accent" /> Connect your AI
           </a>
         </div>
-        <div className="mt-8 flex w-full max-w-full justify-center">
+        <div className="mt-8 flex w-full max-w-full flex-col items-center justify-center gap-2.5 sm:flex-row">
           <TypedAddress />
+          <McpChip />
         </div>
       </div>
       <ProductShot />
@@ -648,54 +654,201 @@ function Footer() {
 // API and MCP
 // ---------------------------------------------------------------------------
 
-function Programmable() {
-  const clients = ['Claude', 'ChatGPT', 'Cursor', 'VS Code', 'Claude Code'];
+function McpChip() {
+  const [copied, setCopied] = useState(false);
   return (
-    <section id="developers" className="scroll-mt-14 py-20 sm:py-28">
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
-        <Reveal>
-          <p className="mb-3 text-[15px] font-semibold text-accent">API and MCP</p>
-          <h2 className="font-display text-[36px] font-bold leading-[1.05] tracking-[-0.03em] text-fg sm:text-[52px]">Let your assistant handle the inbox.</h2>
-          <p className="mt-5 max-w-md text-[17px] leading-relaxed text-fg-2">
-            Connect Claude, ChatGPT or your editor to the remote MCP server with one click and a sign-in. Or build on the REST API with OAuth 2.1
-            and scoped keys.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {clients.map((c) => (
-              <span key={c} className="rounded-full bg-fill px-3 py-1 text-[13px] text-fg-2">
-                {c}
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(MCP_URL);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Copy MCP server URL"
+      className="icon-hover inline-flex max-w-full items-center gap-2 rounded-full bg-fill py-1.5 pl-3 pr-3.5 text-[13px] text-fg-2 transition hover:bg-fill-2 sm:text-[14px]"
+    >
+      <Plug className="h-4 w-4 shrink-0 text-accent" />
+      <span className="truncate font-medium text-fg">MCP</span>
+      <span className="truncate">{MCP_URL.replace('https://', '')}</span>
+      <span className="icon-anim">{copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}</span>
+    </button>
+  );
+}
+
+const TRANSCRIPT: [string, string, string][] = [
+  ['list_messages', 'unread, inbox', '12 found'],
+  ['update_messages', '7 newsletters → archive', 'done'],
+  ['read_thread', 'Re: Analytical Engine notes', '3 messages'],
+  ['reply_to_email', 'to Ada Lovelace', 'sent'],
+];
+
+// The assistant demo plays its tool calls one by one when scrolled into view.
+function AssistantDemo() {
+  const [step, setStep] = useState(0);
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    if (!started) return;
+    if (step >= TRANSCRIPT.length + 1) return;
+    const t = setTimeout(() => setStep((n) => n + 1), step === 0 ? 500 : 650);
+    return () => clearTimeout(t);
+  }, [started, step]);
+  return (
+    <motion.div
+      onViewportEnter={() => setStarted(true)}
+      viewport={{ once: true, margin: '-80px' }}
+      className="rounded-[26px] bg-white/[0.06] p-2 ring-1 ring-white/10"
+    >
+      <div className="rounded-[20px] bg-[#161618] p-6 text-[15px]">
+        <div className="flex items-center gap-2 text-[13px] text-white/50">
+          <Sparkle /> Your assistant
+        </div>
+        <p className="mt-3 rounded-2xl rounded-tl-md bg-white/[0.07] px-4 py-3 text-white">
+          Clear out today’s newsletters and reply to Ada saying I’ll review the notes on Friday.
+        </p>
+        <div className="mt-4 space-y-2 font-mono text-[13px]">
+          {TRANSCRIPT.map(([tool, arg, out], i) => (
+            <div
+              key={tool}
+              className={cx(
+                'flex items-center gap-2.5 rounded-xl bg-white/[0.05] px-3.5 py-2.5 transition-all duration-500 ease-apple',
+                step > i ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+              )}
+            >
+              <span className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded-full', step > i + 1 || step > TRANSCRIPT.length ? 'bg-[#30d158]' : 'bg-white/15')}>
+                {(step > i + 1 || step > TRANSCRIPT.length) && <Check className="h-2.5 w-2.5 text-black" strokeWidth={4} />}
               </span>
+              <span className="text-white">{tool}</span>
+              <span className="truncate text-white/40">{arg}</span>
+              <span className="ml-auto shrink-0 text-white/60">{out}</span>
+            </div>
+          ))}
+        </div>
+        <p
+          className={cx(
+            'mt-4 text-white/80 transition-opacity duration-500',
+            step > TRANSCRIPT.length ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          Done. I archived 7 newsletters and told Ada you’ll review the notes on Friday.
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+function Programmable() {
+  const clients = ['Claude', 'ChatGPT', 'Cursor', 'VS Code', 'Claude Code', 'Any MCP client'];
+  const cards: [typeof Mail, string, string][] = [
+    [Plug, 'Remote MCP server', 'Eight tools to search, read, send, reply and organize. Streamable HTTP, works with every major assistant.'],
+    [Code2, 'REST API', 'Clean JSON endpoints with an OpenAPI 3.1 spec. Search, read, send and update in a few lines.'],
+    [KeyRound, 'OAuth 2.1 built in', 'One-click sign-in with scoped access, plus personal API keys for scripts. Revoke any time.'],
+  ];
+  return (
+    <section id="developers" className="relative isolate scroll-mt-12 overflow-hidden bg-[#0b0b0d] py-24 text-white sm:py-32">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+        <div className="absolute -left-[20%] top-[-30%] h-[700px] w-[900px] bg-[radial-gradient(ellipse_at_center,rgba(10,132,255,0.28),transparent_65%)]" />
+        <div className="absolute -right-[20%] bottom-[-30%] h-[700px] w-[900px] bg-[radial-gradient(ellipse_at_center,rgba(191,90,242,0.2),transparent_65%)]" />
+      </div>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Reveal className="mx-auto max-w-4xl text-center">
+          <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-[14px] font-medium text-white/80">
+            <Bot className="h-4 w-4 text-[#0a84ff]" /> API and MCP
+          </p>
+          <h2 className="text-balance font-display text-[44px] font-bold leading-[1.02] tracking-[-0.04em] sm:text-[76px]">
+            Your inbox,
+            <br />
+            <span className="bg-gradient-to-r from-[#5ac8fa] via-[#0a84ff] to-[#bf5af2] bg-clip-text text-transparent">programmable.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-2xl text-pretty text-[19px] leading-relaxed text-white/65 sm:text-[21px]">
+            Hand the inbox to your AI. Connect Claude, ChatGPT or your editor with one click and a sign-in, or build on the API. No passwords, no
+            pasted tokens.
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.05} className="mx-auto mt-10 max-w-2xl">
+          <CopyBar value={MCP_URL} />
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <a href={INSTALL.cursor} className={cx(pill, 'h-10 bg-white px-5 text-[14.5px] text-black hover:bg-white/90')}>
+              Add to Cursor
+            </a>
+            <a href={INSTALL.vscode} className={cx(pill, 'h-10 bg-white/10 px-5 text-[14.5px] text-white hover:bg-white/15')}>
+              Add to VS Code
+            </a>
+            <a href="https://claude.ai/settings/connectors" target="_blank" rel="noreferrer" className={cx(pill, 'h-10 bg-white/10 px-5 text-[14.5px] text-white hover:bg-white/15')}>
+              Add to Claude
+            </a>
+            <Link to="/developers" className={cx(pill, 'h-10 px-4 text-[14.5px] text-[#0a84ff] hover:underline')}>
+              Developer docs <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[13.5px] text-white/45">
+            {clients.map((c) => (
+              <span key={c}>{c}</span>
             ))}
           </div>
-          <Link to="/developers" className={cx(pillSecondary, 'mt-7 text-[16px]')}>
-            Developer docs <ArrowRight className="h-4 w-4" />
-          </Link>
         </Reveal>
-        <Reveal delay={0.08} className="overflow-hidden rounded-[28px] bg-sunken p-2">
-          <div className="rounded-[22px] bg-bg p-5 text-[14px] shadow-sm">
-            <div className="flex items-center gap-2 text-[12.5px] text-fg-3">
-              <Sparkle /> Assistant
+
+        <div className="mt-16 grid items-stretch gap-4 lg:grid-cols-2">
+          <AssistantDemo />
+          <Reveal delay={0.08} className="flex flex-col overflow-hidden rounded-[26px] bg-white/[0.06] p-2 ring-1 ring-white/10">
+            <div className="flex flex-1 flex-col rounded-[20px] bg-[#161618]">
+              <div className="flex items-center gap-2 px-5 pt-4 text-[12.5px] text-white/50">
+                {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
+                  <span key={c} className="size-2.5 rounded-full" style={{ background: c }} />
+                ))}
+                <span className="ml-2">REST API</span>
+              </div>
+              <pre className="flex-1 overflow-x-auto p-5 font-mono text-[13px] leading-[1.8] text-white/90">
+                <span className="text-white/35"># Find unread invoices</span>
+                {'\n'}curl {'"'}
+                <span className="text-[#5ac8fa]">{MCP_URL.replace('/mcp', '')}/v1/messages?q=invoice&unread=true</span>
+                {'" \\\n'}  -H <span className="text-[#ffd60a]">{'"Authorization: Bearer $MAIL_KEY"'}</span>
+                {'\n\n'}
+                <span className="text-white/35"># Reply in the same thread</span>
+                {'\n'}curl -X POST <span className="text-[#5ac8fa]">{MCP_URL.replace('/mcp', '')}/v1/messages</span>
+                {' \\\n'}  -H <span className="text-[#ffd60a]">{'"Authorization: Bearer $MAIL_KEY"'}</span>
+                {' \\\n'}  -d <span className="text-[#30d158]">{`'{"replyTo": "<id>", "text": "Paid, thanks!"}'`}</span>
+              </pre>
+              <a href={OPENAPI_URL} target="_blank" rel="noreferrer" className="mx-5 mb-5 inline-flex items-center gap-1 text-[14px] font-medium text-[#0a84ff] hover:underline">
+                OpenAPI spec <ArrowRight className="h-4 w-4" />
+              </a>
             </div>
-            <p className="mt-2 text-fg">Archive my newsletters from this week and draft a reply to Ada about the engine notes.</p>
-            <div className="mt-4 space-y-1.5 font-mono text-[12.5px]">
-              {[
-                ['list_messages', 'query: "newsletter"', '6 found'],
-                ['update_messages', 'move_to: archive', '6 archived'],
-                ['read_thread', 'Analytical Engine notes', '3 messages'],
-                ['reply_to_email', 'to Ada Lovelace', 'sent'],
-              ].map(([tool, arg, out]) => (
-                <div key={tool} className="flex items-center gap-2 rounded-lg bg-fill px-3 py-2">
-                  <Check className="h-3.5 w-3.5 shrink-0 text-success" />
-                  <span className="text-fg">{tool}</span>
-                  <span className="truncate text-fg-3">{arg}</span>
-                  <span className="ml-auto shrink-0 text-fg-2">{out}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
+          </Reveal>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {cards.map(([Icon, title, body], i) => (
+            <Reveal key={title} delay={i * 0.06} className="rounded-[26px] bg-white/[0.06] p-7 ring-1 ring-white/10">
+              <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-[#0a84ff]">
+                <Icon className="h-5 w-5 text-white" />
+              </span>
+              <h3 className="mt-5 text-[20px] font-bold tracking-[-0.02em]">{title}</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-white/60">{body}</p>
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
+  );
+}
+
+function CopyBar({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-white/[0.08] py-2 pl-5 pr-2 ring-1 ring-white/10">
+      <Plug className="h-5 w-5 shrink-0 text-[#0a84ff]" />
+      <code className="min-w-0 flex-1 truncate font-mono text-[15px] text-white">{value}</code>
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="icon-hover inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-white px-4 text-[14px] font-medium text-black transition hover:bg-white/90"
+      >
+        <span className="icon-anim">{copied ? <Check className="h-4 w-4 text-[#28a745]" /> : <Copy className="h-4 w-4" />}</span>
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
   );
 }
 
@@ -712,10 +865,10 @@ function Landing() {
     <div className="min-h-dvh overflow-x-hidden bg-bg text-fg">
       <Header />
       <Hero />
+      <Programmable />
       <Own />
       <Deploy />
       <Features />
-      <Programmable />
       <Keyboard />
       <ClosingCta />
       <Footer />
