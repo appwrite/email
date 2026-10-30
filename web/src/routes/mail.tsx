@@ -33,7 +33,7 @@ function Splash() {
       <aside className="hidden w-[248px] shrink-0 border-r border-line bg-sidebar md:block">
         <div className="flex h-[52px] items-center justify-between pl-4 pr-3">
           <EmailLockup size={18} />
-          <div className="h-8 w-8 rounded-md bg-accent" />
+          <PenSquare className="mr-2 h-[18px] w-[18px] text-accent" />
         </div>
       </aside>
       <section className="flex w-full shrink-0 flex-col border-r border-line bg-surface lg:w-[380px] xl:w-[420px]">
@@ -129,9 +129,9 @@ function MailLayout() {
         <button
           onClick={() => openComposer()}
           aria-label="New message"
-          className="fixed bottom-[max(20px,env(safe-area-inset-bottom))] right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_30px_-6px_var(--accent)] transition active:scale-95 md:hidden"
+          className="vibrancy fixed bottom-[max(20px,env(safe-area-inset-bottom))] right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--elevated)_82%,transparent)] text-accent shadow-pop ring-1 ring-line transition active:scale-95 md:hidden dark:ring-line-strong"
         >
-          <PenSquare className="h-6 w-6" />
+          <PenSquare className="h-[22px] w-[22px]" />
         </button>
       </div>
       <ComposerDock />

@@ -140,9 +140,10 @@ export function Sidebar() {
           title="New message (C)"
           anim="tilt"
           onClick={() => openComposer()}
-          className="bg-accent text-white hover:bg-accent hover:text-white hover:opacity-90 active:bg-accent"
+          // Tinted, not filled: the accent marks the action like a system toolbar glyph.
+          className="text-accent! hover:bg-accent-soft"
         >
-          <PenSquare className="h-4 w-4" />
+          <PenSquare className="h-[18px] w-[18px]" />
         </IconButton>
       </div>
 
