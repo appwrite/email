@@ -13,6 +13,7 @@ import {
   Minimize2,
   Minus,
   Paperclip,
+  PenSquare,
   Quote,
   RemoveFormatting,
   Send,
@@ -47,7 +48,7 @@ const UNDO_MS = 5000;
 export function ComposerDock() {
   const composers = uiStore.use((s) => s.composers);
   return (
-    <div className="pointer-events-none fixed bottom-0 right-0 z-[60] flex items-end gap-3 px-3 sm:px-5 no-print">
+    <div className="pointer-events-none fixed bottom-0 right-0 z-[60] flex items-end gap-3 px-3 sm:px-5 sm:pb-4 no-print">
       <AnimatePresence>
         {composers.map((c) => (
           <ComposerWindow key={c.key} state={c} />
@@ -309,9 +310,10 @@ function ComposerWindow({ state }: { state: ComposerState }) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         onClick={() => updateComposer(state.key, { minimized: false })}
-        className="pointer-events-auto mb-0 flex h-10 w-[260px] items-center gap-2 rounded-t-lg border border-b-0 border-line bg-elevated px-3.5 text-left shadow-pop dark:border-line-strong"
+        className="vibrancy pointer-events-auto flex h-11 w-[260px] items-center gap-2.5 rounded-full bg-[color-mix(in_srgb,var(--elevated)_92%,transparent)] pl-4 pr-1.5 text-left shadow-pop ring-1 ring-line dark:ring-line-strong"
       >
-        <span className="flex-1 truncate text-[13px] font-medium">{titleFor(state)}</span>
+        <PenSquare className="h-4 w-4 shrink-0 text-accent" />
+        <span className="flex-1 truncate text-[13.5px] font-semibold">{titleFor(state)}</span>
         <span
           role="button"
           tabIndex={0}
@@ -319,7 +321,7 @@ function ComposerWindow({ state }: { state: ComposerState }) {
             e.stopPropagation();
             closeComposer(state.key);
           }}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-fg-3 hover:bg-fill"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-fg-3 hover:bg-fill hover:text-fg"
           aria-label="Close"
         >
           <X className="h-3.5 w-3.5" />
@@ -347,30 +349,42 @@ function ComposerWindow({ state }: { state: ComposerState }) {
       }}
       onDrop={onDrop}
       className={cx(
-        'pointer-events-auto relative flex flex-col overflow-hidden border border-line bg-elevated shadow-pop dark:border-line-strong',
+        'pointer-events-auto relative flex flex-col overflow-hidden bg-elevated shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35),0_0_0_0.5px_var(--line-strong)]',
         state.maximized
-          ? 'fixed inset-3 z-[70] rounded-xl sm:inset-x-[8vw] sm:inset-y-[5vh]'
-          : 'fixed inset-0 z-[70] sm:static sm:mb-0 sm:h-[min(620px,calc(100dvh-24px))] sm:w-[560px] sm:rounded-t-xl sm:border-b-0',
+          ? 'fixed inset-3 z-[70] rounded-[22px] sm:inset-x-[10vw] sm:inset-y-[6vh]'
+          : 'fixed inset-0 z-[70] sm:static sm:h-[min(640px,calc(100dvh-32px))] sm:w-[580px] sm:rounded-[22px]',
       )}
     >
       <div
-        className="flex h-10 shrink-0 cursor-default items-center gap-1 border-b border-line bg-sunken pl-4 pr-2"
+        className="flex shrink-0 cursor-default items-start gap-2 pb-1 pl-5 pr-3 pt-4"
         onDoubleClick={() => updateComposer(state.key, { maximized: !state.maximized })}
       >
-        <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{titleFor(state)}</div>
-        <span className="mr-1 text-[11.5px] text-fg-3">{saved === 'saving' ? 'Saving…' : saved === 'saved' ? 'Draft saved' : ''}</span>
-        <IconButton size="sm" label="Minimize" onClick={() => updateComposer(state.key, { minimized: true })} className="max-sm:hidden">
-          <Minus className="h-4 w-4" />
-        </IconButton>
-        <IconButton size="sm" label={state.maximized ? 'Exit full screen' : 'Full screen'} onClick={() => updateComposer(state.key, { maximized: !state.maximized })} className="max-sm:hidden">
-          {state.maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-        </IconButton>
-        <IconButton size="sm" label="Close" onClick={() => closeComposer(state.key)}>
-          <X className="h-4 w-4" />
-        </IconButton>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-display text-[19px] font-bold leading-tight tracking-[-0.02em]">{titleFor(state)}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-fg-3">
+            <span className="truncate">From {formatAddress({ name: user.name, email: mailbox.address })}</span>
+            {saved !== 'idle' && <span className="shrink-0">· {saved === 'saving' ? 'Saving…' : 'Draft saved'}</span>}
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          {[
+            { label: 'Minimize', icon: <Minus className="h-3.5 w-3.5" />, run: () => updateComposer(state.key, { minimized: true }), desktop: true },
+            {
+              label: state.maximized ? 'Exit full screen' : 'Full screen',
+              icon: state.maximized ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />,
+              run: () => updateComposer(state.key, { maximized: !state.maximized }),
+              desktop: true,
+            },
+            { label: 'Close', icon: <X className="h-3.5 w-3.5" />, run: () => closeComposer(state.key) },
+          ].map((b) => (
+            <IconButton key={b.label} size="sm" label={b.label} onClick={b.run} className={cx('rounded-full bg-fill hover:bg-fill-2', b.desktop && 'max-sm:hidden')}>
+              {b.icon}
+            </IconButton>
+          ))}
+        </div>
       </div>
 
-      <div className="shrink-0 px-4">
+      <div className="shrink-0 px-5">
         <RecipientField
           label="To"
           values={state.to}
@@ -378,8 +392,8 @@ function ComposerWindow({ state }: { state: ComposerState }) {
           autoFocus={state.focus === 'to' || (state.mode === 'new' && !state.to.length)}
           trailing={
             !state.showCc && (
-              <button onClick={() => updateComposer(state.key, { showCc: true })} className="text-[13px] text-fg-3 hover:text-fg">
-                Cc/Bcc
+              <button onClick={() => updateComposer(state.key, { showCc: true })} className="rounded-full bg-fill px-2.5 py-0.5 text-[12px] font-medium text-fg-2 hover:bg-fill-2 hover:text-fg">
+                Cc Bcc
               </button>
             )
           }
@@ -390,17 +404,12 @@ function ComposerWindow({ state }: { state: ComposerState }) {
             <RecipientField label="Bcc" values={state.bcc} onChange={(bcc) => update({ bcc })} />
           </>
         )}
-        <div className="flex h-11 items-center gap-2 border-b border-line">
-          <span className="w-12 shrink-0 text-[13px] text-fg-3">Subject</span>
-          <input
-            value={state.subject}
-            onChange={(e) => update({ subject: e.target.value })}
-            className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-medium outline-none"
-          />
-        </div>
-        <div className="flex h-9 items-center gap-1 text-[12.5px] text-fg-3">
-          From <span className="truncate font-medium text-fg-2">{formatAddress({ name: user.name, email: mailbox.address })}</span>
-        </div>
+        <input
+          value={state.subject}
+          onChange={(e) => update({ subject: e.target.value })}
+          placeholder="Subject"
+          className="h-12 w-full bg-transparent text-[17px] font-semibold tracking-[-0.01em] outline-none placeholder:font-medium placeholder:text-fg-3"
+        />
       </div>
 
       <AnimatePresence>
@@ -409,9 +418,9 @@ function ComposerWindow({ state }: { state: ComposerState }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="shrink-0 overflow-hidden px-3"
+            className="shrink-0 overflow-hidden px-4"
           >
-            <div className="mb-1 flex flex-wrap items-center gap-0.5 rounded-md border border-line bg-sunken p-0.5 dark:border-line-strong/60">
+            <div className="mb-1 inline-flex flex-wrap items-center gap-0.5 rounded-full bg-fill p-1">
               {[
                 ['Bold', Bold, () => exec('bold')],
                 ['Italic', Italic, () => exec('italic')],
@@ -430,7 +439,7 @@ function ComposerWindow({ state }: { state: ComposerState }) {
                 ],
                 ['Clear formatting', RemoveFormatting, () => exec('removeFormat')],
               ].map(([label, Icon, run]: any) => (
-                <IconButton key={label} size="sm" label={label} onMouseDown={(e) => e.preventDefault()} onClick={run}>
+                <IconButton key={label} size="sm" label={label} onMouseDown={(e) => e.preventDefault()} onClick={run} className="rounded-full hover:bg-fill-2">
                   <Icon className="h-4 w-4" />
                 </IconButton>
               ))}
@@ -439,7 +448,7 @@ function ComposerWindow({ state }: { state: ComposerState }) {
         )}
       </AnimatePresence>
 
-      <div className="scroll-thin relative min-h-[120px] flex-1 overflow-y-auto px-4 pb-3 pt-1">
+      <div className="scroll-thin relative min-h-[120px] flex-1 overflow-y-auto px-5 pb-3 pt-2">
         <div
           ref={editorRef}
           contentEditable
@@ -455,14 +464,14 @@ function ComposerWindow({ state }: { state: ComposerState }) {
         {state.attachments.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {state.attachments.map((a) => (
-              <div key={a.id} className={cx('group relative flex h-12 max-w-[220px] items-center gap-2 rounded-xl border bg-surface pl-2 pr-7', a.error ? 'border-danger' : 'border-line')}>
+              <div key={a.id} className={cx('group relative flex h-12 max-w-[220px] items-center gap-2.5 rounded-2xl bg-fill pl-3 pr-8', a.error && 'ring-1 ring-danger')}>
                 <AttachmentIcon a={a} className="h-6 w-6 shrink-0" />
                 <div className="min-w-0">
                   <div className="truncate text-[12.5px] font-medium">{a.name}</div>
                   <div className="text-[11px] text-fg-3">{a.error ? 'Failed' : a.uploading ? `${Math.round(a.progress || 0)}%` : bytes(a.size)}</div>
                 </div>
                 {a.uploading && (
-                  <div className="absolute inset-x-2 bottom-1 h-[3px] overflow-hidden rounded-full bg-fill-2">
+                  <div className="absolute inset-x-3 bottom-1.5 h-[3px] overflow-hidden rounded-full bg-fill-2">
                     <div className="h-full bg-accent transition-[width]" style={{ width: `${a.progress || 2}%` }} />
                   </div>
                 )}
@@ -491,16 +500,32 @@ function ComposerWindow({ state }: { state: ComposerState }) {
         </AnimatePresence>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 border-t border-line px-3 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))]">
-        <div className="flex overflow-hidden rounded-md">
-          <Button variant="primary" size="sm" className="rounded-none pl-3.5 pr-3" onClick={() => send()}>
-            <Send className="h-4 w-4" /> Send
-          </Button>
-          <Button ref={laterRef} variant="primary" size="sm" className="rounded-none border-l border-l-white/25 px-2" aria-label="Send later" onClick={() => setLaterOpen(true)}>
+      <div className="flex shrink-0 items-center gap-1 px-3 pb-[max(14px,env(safe-area-inset-bottom))] pt-2">
+        <IconButton label="Attach files" onClick={() => fileRef.current?.click()} className="rounded-full">
+          <Paperclip className="h-[18px] w-[18px]" />
+        </IconButton>
+        <IconButton label="Formatting" active={toolbar} onClick={() => setToolbar((v) => !v)} className="rounded-full">
+          <Type className="h-[18px] w-[18px]" />
+        </IconButton>
+        <IconButton label="Discard draft" onClick={discard} className="rounded-full">
+          <Trash2 className="h-[18px] w-[18px]" />
+        </IconButton>
+        <div className="flex-1" />
+        <span className="mr-2 hidden text-[11.5px] text-fg-3 sm:inline">⌘↵</span>
+        {/* Send, with send-later in the same pill. */}
+        <div className="flex h-9 overflow-hidden rounded-full bg-accent text-white shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--accent)_60%,transparent)]">
+          <button onClick={() => send()} className="icon-hover flex items-center gap-2 pl-4 pr-3 text-[14px] font-semibold transition hover:brightness-110">
+            Send
+            <span className="icon-anim">
+              <Send className="h-4 w-4" />
+            </span>
+          </button>
+          <span className="my-2 w-px bg-white/30" aria-hidden />
+          <button ref={laterRef} onClick={() => setLaterOpen(true)} aria-label="Send later" title="Send later" className="flex items-center px-2.5 transition hover:brightness-110">
             <ChevronDown className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
-        <Popover open={laterOpen} onClose={() => setLaterOpen(false)} anchor={laterRef.current} placement="top-start" width={260}>
+        <Popover open={laterOpen} onClose={() => setLaterOpen(false)} anchor={laterRef.current} placement="top-end" width={260}>
           <MenuLabel>Send later</MenuLabel>
           {[{ label: 'In 1 hour', date: new Date(Date.now() + 3600_000), hint: '' }, ...snoozePresets().filter((p) => p.label !== 'Later today')].map((p) => (
             <MenuItem
@@ -535,12 +560,6 @@ function ComposerWindow({ state }: { state: ComposerState }) {
             </Button>
           </form>
         </Popover>
-        <IconButton label="Formatting" active={toolbar} onClick={() => setToolbar((v) => !v)}>
-          <Type className="h-[18px] w-[18px]" />
-        </IconButton>
-        <IconButton label="Attach files" onClick={() => fileRef.current?.click()}>
-          <Paperclip className="h-[18px] w-[18px]" />
-        </IconButton>
         <input
           ref={fileRef}
           type="file"
@@ -551,11 +570,6 @@ function ComposerWindow({ state }: { state: ComposerState }) {
             e.target.value = '';
           }}
         />
-        <div className="flex-1" />
-        <span className="mr-2 hidden text-[11.5px] text-fg-3 sm:inline">⌘↵ to send</span>
-        <IconButton label="Discard draft" onClick={discard}>
-          <Trash2 className="h-[18px] w-[18px]" />
-        </IconButton>
       </div>
     </motion.div>
   );
@@ -617,8 +631,8 @@ function RecipientField({
   };
 
   return (
-    <div className="relative flex min-h-11 items-center gap-2 border-b border-line py-1.5" onClick={() => inputRef.current?.focus()}>
-      <span className="w-12 shrink-0 self-start pt-[5px] text-[13px] text-fg-3">{label}</span>
+    <div className="relative flex min-h-11 items-center gap-2 border-b border-line/70 py-1.5" onClick={() => inputRef.current?.focus()}>
+      <span className="w-8 shrink-0 self-start pt-[5px] text-[13px] text-fg-3">{label}</span>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         {values.map((v) => {
           const a = parseAddress(v);
@@ -628,18 +642,19 @@ function RecipientField({
               key={v}
               title={a.email}
               className={cx(
-                'inline-flex h-6 max-w-full items-center gap-1 rounded-md border pl-2 pr-0.5 text-[12.5px]',
-                valid ? 'border-line bg-fill text-fg dark:border-line-strong' : 'border-transparent bg-[rgba(239,68,68,0.12)] text-danger',
+                'inline-flex h-7 max-w-full items-center gap-1.5 rounded-full pl-0.5 pr-1 text-[13px]',
+                valid ? 'bg-fill text-fg' : 'bg-[rgba(239,68,68,0.12)] text-danger',
               )}
             >
-              <span className="truncate">{displayName(a)}</span>
+              <Avatar name={displayName(a)} email={valid ? a.email : undefined} size={24} />
+              <span className="truncate font-medium">{displayName(a)}</span>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onChange(values.filter((x) => x !== v));
                 }}
-                className="flex h-5 w-5 items-center justify-center rounded text-fg-3 hover:bg-fill-2 hover:text-fg"
+                className="flex h-5 w-5 items-center justify-center rounded-full text-fg-3 hover:bg-fill-2 hover:text-fg"
                 aria-label={`Remove ${a.email}`}
               >
                 <X className="h-3 w-3" />
@@ -696,7 +711,7 @@ function RecipientField({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="absolute left-12 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-line bg-elevated p-1 shadow-pop dark:border-line-strong"
+            className="absolute left-10 right-0 top-full z-10 mt-1 overflow-hidden rounded-xl border border-line bg-elevated p-1 shadow-pop dark:border-line-strong"
           >
             {suggestions.map((c, i) => (
               <li
