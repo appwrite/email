@@ -5,9 +5,9 @@
 /* Neutral, Apple-style tokens: system type, soft grays, and the system blue
    as the one accent. */
 :root {
-  --accent: #007aff;
+  --accent: var(--brand-accent, #007aff);
   --accent-fg: #ffffff;
-  --accent-soft: rgba(0, 122, 255, 0.1);
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
 
   --bg: #ffffff;
   --surface: #ffffff;
@@ -23,20 +23,20 @@
   --line-strong: #d2d2d7;
   --fill: #f2f2f4;
   --fill-2: #e8e8ed;
-  --selected: rgba(0, 122, 255, 0.1);
+  --selected: color-mix(in srgb, var(--accent) 10%, transparent);
   --danger: #ff3b30;
   --success: #28a745;
   --warning: #f59e0b;
   --info: #007aff;
   --shadow-lg: 0 18px 50px -12px rgba(0, 0, 0, 0.18), 0 2px 8px -2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
   --scrim: rgba(0, 0, 0, 0.28);
-  --selection: rgba(0, 122, 255, 0.22);
+  --selection: color-mix(in srgb, var(--accent) 22%, transparent);
   color-scheme: light;
 }
 
 .dark {
-  --accent: #0a84ff;
-  --accent-soft: rgba(10, 132, 255, 0.16);
+  --accent: var(--brand-accent, #0a84ff);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --bg: #1c1c1e;
   --surface: #1c1c1e;
   --card: #242426;
@@ -51,14 +51,14 @@
   --line-strong: #3a3a3c;
   --fill: #2a2a2c;
   --fill-2: #3a3a3c;
-  --selected: rgba(10, 132, 255, 0.2);
+  --selected: color-mix(in srgb, var(--accent) 20%, transparent);
   --danger: #ff453a;
   --success: #30d158;
   --warning: #ffd60a;
   --info: #0a84ff;
   --shadow-lg: 0 18px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
   --scrim: rgba(0, 0, 0, 0.5);
-  --selection: rgba(10, 132, 255, 0.4);
+  --selection: color-mix(in srgb, var(--accent) 40%, transparent);
   color-scheme: dark;
 }
 

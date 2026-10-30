@@ -1,7 +1,8 @@
 import { useId } from 'react';
+import { DEFAULT_NAME, useBrand } from '~/lib/brand';
 import { cx } from './ui';
 
-export const APP_NAME = 'Mail';
+export const APP_NAME = DEFAULT_NAME;
 
 /**
  * App icon: a white envelope on a blue rounded square, in the style of a
@@ -9,6 +10,19 @@ export const APP_NAME = 'Mail';
  */
 export function EmailMark({ size = 24, className }: { size?: number; className?: string }) {
   const id = useId();
+  const brand = useBrand();
+  if (brand.logo) {
+    return (
+      <img
+        src={brand.logo}
+        alt={brand.name}
+        width={size}
+        height={size}
+        className={cx('shrink-0 object-cover', className)}
+        style={{ width: size, height: size, borderRadius: size * 0.234 }}
+      />
+    );
+  }
   return (
     <svg viewBox="0 0 64 64" width={size} height={size} fill="none" role="img" aria-label={APP_NAME} className={cx('shrink-0', className)}>
       <defs>
@@ -25,7 +39,8 @@ export function EmailMark({ size = 24, className }: { size?: number; className?:
 }
 
 export function EmailWordmark({ className }: { className?: string }) {
-  return <span className={cx('font-display font-semibold leading-none tracking-[-0.02em]', className)}>{APP_NAME}</span>;
+  const brand = useBrand();
+  return <span className={cx('font-display font-semibold leading-none tracking-[-0.02em]', className)}>{brand.name}</span>;
 }
 
 /** Icon and wordmark on one baseline. */

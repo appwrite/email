@@ -27,7 +27,9 @@ export type SendLimits = {
   exemptAdmins: boolean;
 };
 
-export type AdminOverview = { signupsOpen: boolean; limits: SendLimits; limitDefaults: SendLimits; accounts: Account[] };
+export type BrandSettings = { brandName: string; brandLogo: string; brandAccent: string };
+
+export type AdminOverview = { signupsOpen: boolean; brand: BrandSettings; limits: SendLimits; limitDefaults: SendLimits; accounts: Account[] };
 
 export const isAdmin = (user?: Models.User<Models.Preferences> | null) => !!user?.labels?.includes('admin');
 
@@ -46,6 +48,7 @@ export const adminApi = {
   overview: () => callApi<AdminOverview>('GET', '/admin'),
   setSignups: (signupsOpen: boolean) => callApi<{ signupsOpen: boolean }>('PATCH', '/admin/config', { signupsOpen }),
   setLimits: (limits: Partial<SendLimits>) => callApi<{ limits: SendLimits }>('PATCH', '/admin/config', limits),
+  setBrand: (brand: Partial<BrandSettings>) => callApi<{ brand: BrandSettings }>('PATCH', '/admin/config', brand),
   create: (data: { name: string; handle: string; email: string; password: string; admin: boolean }) => callApi<{ userId: string }>('POST', '/admin/accounts', data),
   update: (userId: string, data: { name?: string; password?: string; admin?: boolean; blocked?: boolean; signOut?: boolean }) =>
     callApi('PATCH', '/admin/accounts', { userId, ...data }),

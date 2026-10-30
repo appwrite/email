@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useRouterState, useSearch } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ChevronDown,
@@ -113,7 +113,8 @@ export function Sidebar() {
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { folder?: string };
   const search = useSearch({ strict: false }) as { label?: string };
-  const pathname = typeof location !== 'undefined' ? location.pathname : '';
+  // Subscribe to the router, so the active item follows navigation.
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
   const counts = useCounts(user.$id).data || {};
   const labelsQuery = useLabels(user.$id);
   const labels = labelsQuery.data || [];

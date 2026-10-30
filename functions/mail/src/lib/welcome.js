@@ -5,7 +5,7 @@ const BLUE = '#007aff';
 const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Helvetica,Arial,sans-serif";
 
 // Neutral, Apple-style welcome message: system type, soft gray tiles, one blue accent.
-export function welcomeEmail({ name, address }) {
+export function welcomeEmail({ name, address, appName = APP_NAME }) {
   const first = escapeHtml((name || '').split(' ')[0] || 'there');
   const addr = escapeHtml(address);
   const tile = (label, body) => `
@@ -16,7 +16,7 @@ export function welcomeEmail({ name, address }) {
       </div>
     </td>`;
   return {
-    subject: `Welcome to ${APP_NAME}, ${first}`,
+    subject: `Welcome to ${appName}, ${(name || "").split(" ")[0] || "there"}`,
     html: `
 <div style="max-width:600px;margin:0 auto;padding:40px 24px;font-family:${FONT};color:#1d1d1f">
   <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(180deg,#4fb3ff,#0a6cff);margin-bottom:28px"></div>
@@ -28,7 +28,7 @@ export function welcomeEmail({ name, address }) {
     <tr>${tile('Rules and labels', 'Sort, label, star and archive mail automatically as it arrives.')}${tile('Send later', 'Schedule messages, snooze threads and set a vacation reply.')}</tr>
   </table>
   <p style="font-size:14px;color:#6e6e73;margin:32px 0 0">Press <b style="color:#1d1d1f">⌘K</b> anywhere for commands, <b style="color:#1d1d1f">C</b> to compose and <b style="color:#1d1d1f">/</b> to search.</p>
-  <div style="border-top:1px solid #e8e8ed;margin-top:36px;padding-top:18px;font-size:12px;color:#a1a1a6">Sent by ${APP_NAME}. You’re receiving this because you created an account.</div>
+  <div style="border-top:1px solid #e8e8ed;margin-top:36px;padding-top:18px;font-size:12px;color:#a1a1a6">Sent by ${escapeHtml(appName)}. You’re receiving this because you created an account.</div>
 </div>`,
   };
 }

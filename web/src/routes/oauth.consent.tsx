@@ -8,6 +8,7 @@ import { Button, Spinner, Switch, cx } from '~/components/ui';
 import { client } from '~/lib/appwrite';
 import { fetchAccount } from '~/lib/queries';
 import { setAfterAuth, signOut } from '~/lib/session';
+import { useBrand } from '~/lib/brand';
 
 export const Route = createFileRoute('/oauth/consent')({
   ssr: false,
@@ -36,6 +37,7 @@ function Consent() {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<'allow' | 'deny' | null>(null);
   const [error, setError] = useState('');
+  const brand = useBrand();
 
   useEffect(() => {
     (async () => {
@@ -121,7 +123,7 @@ function Consent() {
   }
 
   return (
-    <AuthLayout title={`Allow ${name}?`} subtitle={<>{name} wants to use your Mail account.</>}>
+    <AuthLayout title={`Allow ${name}?`} subtitle={<>{name} wants to use your {brand.name} account.</>}>
       <FormError>{error}</FormError>
       <div className="mb-6 flex items-center justify-center gap-4">
         <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[15px] bg-fill text-fg-2 shadow-[0_0_0_0.5px_var(--line-strong)]">

@@ -7,6 +7,32 @@ import { HttpError } from './compose.js';
 import { getRowOrNull } from './mail.js';
 
 export const ADMIN_LABEL = 'admin';
+export const BRANDING_BUCKET_ID = 'branding';
+
+/** Current branding; empty strings mean the built-in defaults. */
+export function brandOf(config) {
+  return { brandName: config?.brandName || '', brandLogo: config?.brandLogo || '', brandAccent: config?.brandAccent || '' };
+}
+
+/** Validates branding input; returns only the fields that were given. */
+export function readBrand(body) {
+  const out = {};
+  if (typeof body.brandName === 'string') {
+    const name = body.brandName.trim();
+    if (name.length > 40) throw new HttpError(400, 'Keep the name to 40 characters.');
+    out.brandName = name;
+  }
+  if (typeof body.brandLogo === 'string') {
+    if (body.brandLogo && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$/.test(body.brandLogo)) throw new HttpError(400, 'That logo file is not valid.');
+    out.brandLogo = body.brandLogo;
+  }
+  if (typeof body.brandAccent === 'string') {
+    const accent = body.brandAccent.trim().toLowerCase();
+    if (accent && !/^#[0-9a-f]{6}$/.test(accent)) throw new HttpError(400, 'Use a hex color like #007aff.');
+    out.brandAccent = accent;
+  }
+  return out;
+}
 const CONFIG_ROW = 'app';
 
 export async function getConfig(svc) {

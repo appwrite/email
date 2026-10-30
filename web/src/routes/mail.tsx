@@ -12,6 +12,7 @@ import { restoreCache, startPersisting } from '~/lib/persist';
 import { warmUp } from '~/lib/prefetch';
 import { fetchAccount, fetchMailbox, queryClient, useContacts, useCounts } from '~/lib/queries';
 import { forgetDevice } from '~/lib/session';
+import { useBrand } from '~/lib/brand';
 import { useGlobalShortcuts } from '~/lib/shortcuts';
 import { DEFAULT_PREFS, openComposer, updatePrefs, type Prefs } from '~/lib/store';
 import type { Models } from 'appwrite';
@@ -110,10 +111,11 @@ function MailLayout() {
   const counts = useCounts(session?.user.$id);
   // Context menus check whether a sender is already a contact.
   useContacts(session?.user.$id);
+  const brandName = useBrand().name;
   useEffect(() => {
     const unread = counts.data?.inbox || 0;
-    document.title = unread ? `Inbox (${unread}) — Mail` : 'Mail';
-  }, [counts.data?.inbox]);
+    document.title = unread ? `Inbox (${unread}) — ${brandName}` : brandName;
+  }, [counts.data?.inbox, brandName]);
 
   if (!session) return <Splash />;
 

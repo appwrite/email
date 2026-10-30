@@ -184,6 +184,10 @@ const schema = {
       int('sendPerDay'),
       int('maxRecipients'),
       bool('exemptAdmins', true),
+      // Branding; empty means the built-in name, logo and accent.
+      str('brandName', 40),
+      str('brandLogo', 36),
+      str('brandAccent', 9),
     ],
     indexes: [],
   },
@@ -302,6 +306,22 @@ await ensure(`bucket ${BUCKET_ID}`, () =>
     maximumFileSize: 25 * 1024 * 1024,
     compression: Compression.None,
     encryption: true,
+    antivirus: true,
+  }),
+);
+
+// Logos for the admin's branding: public to read, writable by admins only.
+await ensure('bucket branding', () =>
+  storage.createBucket({
+    bucketId: 'branding',
+    name: 'Branding',
+    permissions: [Permission.read(Role.any()), Permission.create(Role.label('admin')), Permission.update(Role.label('admin')), Permission.delete(Role.label('admin'))],
+    fileSecurity: false,
+    enabled: true,
+    maximumFileSize: 2 * 1024 * 1024,
+    allowedFileExtensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+    compression: Compression.None,
+    encryption: false,
     antivirus: true,
   }),
 );

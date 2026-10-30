@@ -6,6 +6,8 @@ import {
   Copy,
   Gauge,
   KeyRound,
+  Mail,
+  Palette,
   LogOut,
   Menu,
   MoreHorizontal,
@@ -17,15 +19,18 @@ import {
   Shield,
   ShieldOff,
   Trash2,
+  Upload,
   UserPlus,
   Users,
 } from 'lucide-react';
-import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { openContextMenu, type MenuEntry } from '~/components/ContextMenu';
 import { Avatar, Button, Empty, Field, IconButton, Input, Sheet, Spinner, Switch, cx } from '~/components/ui';
 import { copyText } from '~/lib/actions';
-import { adminApi, generatePassword, isAdmin, type Account, type SendLimits } from '~/lib/admin';
-import { MAIL_DOMAIN } from '~/lib/appwrite';
+import { adminApi, generatePassword, isAdmin, type Account, type BrandSettings, type SendLimits } from '~/lib/admin';
+import { ACCENT_PRESETS, BRANDING_BUCKET_ID, DEFAULT_NAME, initBrand, logoUrl } from '~/lib/brand';
+import { ID } from 'appwrite';
+import { MAIL_DOMAIN, storage } from '~/lib/appwrite';
 import { formatAddress, relativeTime } from '~/lib/format';
 import { useMail } from '~/lib/mail-context';
 import { openComposer, toast, uiStore } from '~/lib/store';
@@ -127,7 +132,7 @@ function AdminPage() {
           {/* Sign-ups */}
           <section className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_0.5px_var(--line-strong)]">
             <div className="flex items-center gap-4 px-5 py-4">
-              <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-white', signupsOpen ? 'bg-success' : 'bg-fg-3')}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-fill text-fg-2">
                 <UserPlus className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -153,6 +158,8 @@ function AdminPage() {
               )}
             </div>
           </section>
+
+          {overview.data && <Branding key={JSON.stringify(overview.data.brand)} brand={overview.data.brand} onSaved={() => overview.refetch()} />}
 
           {overview.data && (
             <SendingLimits
@@ -296,6 +303,149 @@ function AdminPage() {
   );
 }
 
+function Branding({ brand, onSaved }: { brand: BrandSettings; onSaved: () => void }) {
+  const [draft, setDraft] = useState<BrandSettings>(brand);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(brand);
+  const accent = draft.brandAccent || ACCENT_PRESETS[0][1];
+  const name = draft.brandName.trim() || DEFAULT_NAME;
+
+  const upload = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) return toast({ title: 'Use an image up to 2 MB', tone: 'error' });
+    setUploading(true);
+    try {
+      const created = await storage.createFile({ bucketId: BRANDING_BUCKET_ID, fileId: ID.unique(), file });
+      setDraft((d) => ({ ...d, brandLogo: created.$id }));
+    } catch (e: any) {
+      toast({ title: 'Could not upload the logo', description: e.message, tone: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await adminApi.setBrand(draft);
+      await initBrand(true);
+      toast({ title: 'Branding saved', description: 'Everyone sees it the next time the app loads.', tone: 'success' });
+      onSaved();
+    } catch (err: any) {
+      toast({ title: 'Could not save branding', description: err.message, tone: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_0.5px_var(--line-strong)]">
+      <div className="flex items-center gap-4 px-5 pt-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-fill text-fg-2">
+          <Palette className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[15.5px] font-semibold">Branding</div>
+          <div className="text-[13px] leading-snug text-fg-2">Your server’s name, logo and accent color, used everywhere: the app, sign-in pages, the homepage and welcome emails.</div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 px-5 pt-4 md:grid-cols-[1fr_240px]">
+        <div className="space-y-4">
+          <Field label="Name">
+            <Input value={draft.brandName} onChange={(e) => setDraft((d) => ({ ...d, brandName: e.target.value }))} placeholder={DEFAULT_NAME} maxLength={40} />
+          </Field>
+          <div>
+            <div className="mb-1.5 text-[13px] font-medium text-fg-2">Logo</div>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" loading={uploading} onClick={() => fileRef.current?.click()}>
+                <Upload className="h-4 w-4" /> {draft.brandLogo ? 'Replace' : 'Upload'}
+              </Button>
+              {draft.brandLogo && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => setDraft((d) => ({ ...d, brandLogo: '' }))}>
+                  Use default
+                </Button>
+              )}
+              <span className="text-[12px] text-fg-3">Square PNG, JPG or WebP, up to 2 MB.</span>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) upload(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-[13px] font-medium text-fg-2">Accent color</div>
+            <div className="flex flex-wrap items-center gap-2">
+              {ACCENT_PRESETS.map(([label, color], i) => {
+                const value = i === 0 ? '' : color;
+                const active = (draft.brandAccent || '') === value || (i === 0 && draft.brandAccent === color);
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    title={i === 0 ? `${label} (default)` : label}
+                    aria-label={label}
+                    onClick={() => setDraft((d) => ({ ...d, brandAccent: value }))}
+                    className={cx('h-7 w-7 rounded-full transition-transform hover:scale-110', active && 'ring-2 ring-fg ring-offset-2 ring-offset-card')}
+                    style={{ background: color }}
+                  />
+                );
+              })}
+              <label
+                title="Custom color"
+                className={cx(
+                  'relative flex h-7 w-7 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[conic-gradient(#ff3b30,#ff9500,#ffcc00,#34c759,#30b0c7,#007aff,#af52de,#ff2d55,#ff3b30)] transition-transform hover:scale-110',
+                  draft.brandAccent && !ACCENT_PRESETS.some(([, c]) => c === draft.brandAccent) && 'ring-2 ring-fg ring-offset-2 ring-offset-card',
+                )}
+              >
+                <input type="color" value={accent} onChange={(e) => setDraft((d) => ({ ...d, brandAccent: e.target.value }))} className="absolute inset-0 cursor-pointer opacity-0" />
+              </label>
+              <code className="ml-1 font-mono text-[12px] text-fg-3">{accent}</code>
+            </div>
+          </div>
+        </div>
+
+        {/* Live preview with the draft name, logo and accent. */}
+        <div className="flex flex-col justify-center gap-3 rounded-2xl bg-sunken p-4" style={{ ['--accent' as string]: accent }}>
+          <div className="flex items-center gap-2.5">
+            {draft.brandLogo ? (
+              <img src={logoUrl(draft.brandLogo)} alt="" className="h-9 w-9 rounded-[9px] object-cover" />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-gradient-to-b from-[#4fb3ff] to-[#0a6cff] text-white">
+                <Mail className="h-5 w-5" />
+              </span>
+            )}
+            <span className="truncate font-display text-[18px] font-semibold tracking-[-0.02em]">{name}</span>
+          </div>
+          <span className="inline-flex h-8 w-fit items-center rounded-full bg-[var(--accent)] px-4 text-[13px] font-semibold text-white">Send</span>
+          <span className="rounded-lg bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-3 py-1.5 text-[12.5px]">Selected message</span>
+          <span className="text-[12.5px] font-medium text-[var(--accent)]">Link color</span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 px-5 py-4">
+        {(draft.brandName || draft.brandLogo || draft.brandAccent) && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setDraft({ brandName: '', brandLogo: '', brandAccent: '' })}>
+            Reset to defaults
+          </Button>
+        )}
+        <Button type="submit" variant="primary" size="sm" loading={saving} disabled={!dirty || uploading}>
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 const LIMIT_FIELDS: { key: 'sendPerMinute' | 'sendPerHour' | 'sendPerDay' | 'maxRecipients'; label: string; unit: string }[] = [
   { key: 'sendPerMinute', label: 'Per minute', unit: 'emails' },
   { key: 'sendPerHour', label: 'Per hour', unit: 'emails' },
@@ -326,7 +476,7 @@ function SendingLimits({ limits, defaults, onSaved }: { limits: SendLimits; defa
   return (
     <form onSubmit={save} className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_0.5px_var(--line-strong)]">
       <div className="flex items-center gap-4 px-5 pt-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-warning text-white">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-fill text-fg-2">
           <Gauge className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">

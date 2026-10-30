@@ -6,7 +6,7 @@ import { HANDLE_RE, RESERVED_HANDLES, mailboxAddress, parseAddress } from './lib
 import { htmlToText, searchTextOf, snippetOf, topicOf, truncate } from './lib/content.js';
 import { randomBytes } from 'node:crypto';
 import { API_SCOPES, hashKey } from './lib/auth.js';
-import { getConfig, hasAdminLabel, listAccounts, requireAdmin, setAdmin, setConfig, syncUserLimit } from './lib/admin.js';
+import { BRANDING_BUCKET_ID, brandOf, getConfig, hasAdminLabel, listAccounts, readBrand, requireAdmin, setAdmin, setConfig, syncUserLimit } from './lib/admin.js';
 import { LIMIT_DEFAULTS, checkSendLimits, countRecipients, limitsOf, readLimits, recordSend, usage } from './lib/limits.js';
 import { HttpError, getMailbox, loadAttachments, readInput, senderName } from './lib/compose.js';
 import { deliver, getRowOrNull, outboundStatus, parseJson, sendMessage } from './lib/mail.js';
@@ -75,14 +75,15 @@ async function createMailbox(svc, userId, body, log) {
       permissions: [Permission.read(Role.user(userId)), Permission.update(Role.user(userId))],
     });
 
-    const welcome = welcomeEmail({ name, address: mailbox.address });
+    const appName = (await getConfig(svc))?.brandName || APP_NAME;
+    const welcome = welcomeEmail({ name, address: mailbox.address, appName });
     await deliver(svc, {
       mailbox,
       msg: {
         messageId: `<welcome.${userId}@appwrite.email>`,
         inReplyTo: '',
         refs: [],
-        fromName: APP_NAME,
+        fromName: appName,
         fromEmail: 'hello@appwrite.email',
         to: [mailbox.address],
         cc: [],
@@ -322,6 +323,7 @@ const routes = {
     const sent = await Promise.all(accounts.map((a) => usage(svc, a.id)));
     return {
       signupsOpen: !!config?.signupsOpen,
+      brand: brandOf(config),
       limits: limitsOf(config),
       limitDefaults: LIMIT_DEFAULTS,
       accounts: accounts.map((a, i) => ({ ...a, sentHour: sent[i].hour, sentDay: sent[i].day })),
@@ -331,12 +333,18 @@ const routes = {
   'PATCH /admin/config': async ({ svc, userId, body }) => {
     await requireAdmin(svc, userId);
     const config = await getConfig(svc);
-    const patch = readLimits(body);
+    const patch = { ...readLimits(body), ...readBrand(body) };
     if (typeof body.signupsOpen === 'boolean') patch.signupsOpen = body.signupsOpen;
+    if (patch.brandLogo) await svc.storage.getFile({ bucketId: BRANDING_BUCKET_ID, fileId: patch.brandLogo });
     // Write every field, so nothing depends on how a partial upsert behaves.
-    const next = await setConfig(svc, { signupsOpen: !!config?.signupsOpen, ...limitsOf(config), ...patch });
+    const next = await setConfig(svc, { signupsOpen: !!config?.signupsOpen, ...limitsOf(config), ...brandOf(config), ...patch });
     if (typeof body.signupsOpen === 'boolean') await syncUserLimit(svc, body.signupsOpen);
-    return { signupsOpen: !!next.signupsOpen, limits: limitsOf(next) };
+    // A replaced or removed logo is deleted.
+    const oldLogo = brandOf(config).brandLogo;
+    if (patch.brandLogo !== undefined && oldLogo && oldLogo !== patch.brandLogo) {
+      await svc.storage.deleteFile({ bucketId: BRANDING_BUCKET_ID, fileId: oldLogo }).catch(() => {});
+    }
+    return { signupsOpen: !!next.signupsOpen, limits: limitsOf(next), brand: brandOf(next) };
   },
 
   // Creates a sign-in and an address for someone, whether or not sign-ups are open.

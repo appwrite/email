@@ -8,6 +8,7 @@ import { ENDPOINT } from '~/lib/appwrite';
 const SITE_URL: string = (import.meta.env.VITE_SITE_URL || 'https://email.appwrite.network').replace(/\/+$/, '');
 import { queryClient } from '~/lib/queries';
 import { THEME_BOOT_SCRIPT, initPrefs } from '~/lib/store';
+import { initBrand } from '~/lib/brand';
 import { Toaster } from '~/components/Toaster';
 
 export const Route = createRootRoute({
@@ -64,6 +65,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 function RootComponent() {
   useEffect(() => {
     initPrefs();
+    initBrand();
   }, []);
   return (
     <QueryClientProvider client={queryClient}>

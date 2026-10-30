@@ -98,7 +98,7 @@ export function updatePrefs(patch: Partial<Prefs>) {
 
 // Inline script for <head> so the theme applies before first paint. It follows
 // the system appearance by default.
-export const THEME_BOOT_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem('${PREFS_KEY}')||'{}');var t=p.theme||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.dataset.density=p.density||'comfortable';}catch(e){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem('${PREFS_KEY}')||'{}');var t=p.theme||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.dataset.density=p.density||'comfortable';var b=JSON.parse(localStorage.getItem('ae:brand')||'{}');if(b.accent)r.style.setProperty('--brand-accent',b.accent);}catch(e){}})();`;
 
 // ---------------------------------------------------------------------------
 // Composer windows

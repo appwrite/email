@@ -47,22 +47,19 @@ export const Route = createFileRoute('/mail/settings')({
 });
 
 // Settings are split into pages, each with its own URL (?section=…).
-const PAGES: { id: Section; label: string; hint: string; icon: typeof User; tint: string }[] = [
-  { id: 'account', label: 'Account', hint: 'Address, name, password', icon: User, tint: '#8e8e93' },
-  { id: 'appearance', label: 'Appearance', hint: 'Theme, density, previews', icon: Palette, tint: '#5856d6' },
-  { id: 'notifications', label: 'Notifications', hint: 'Alerts and sounds', icon: Bell, tint: '#ff3b30' },
-  { id: 'mail', label: 'Mail', hint: 'Signature, vacation reply, forwarding', icon: PenLine, tint: '#007aff' },
-  { id: 'organize', label: 'Organize', hint: 'Rules, labels, blocked senders', icon: Filter, tint: '#34c759' },
-  { id: 'security', label: 'Security', hint: 'Two-factor and devices', icon: ShieldCheck, tint: '#ff9500' },
-  { id: 'developer', label: 'API & MCP', hint: 'Assistants and API keys', icon: Code2, tint: '#30b0c7' },
+const PAGES: { id: Section; label: string; hint: string; icon: typeof User }[] = [
+  { id: 'account', label: 'Account', hint: 'Address, name, password', icon: User },
+  { id: 'appearance', label: 'Appearance', hint: 'Theme, density, previews', icon: Palette },
+  { id: 'notifications', label: 'Notifications', hint: 'Alerts and sounds', icon: Bell },
+  { id: 'mail', label: 'Mail', hint: 'Signature, vacation reply, forwarding', icon: PenLine },
+  { id: 'organize', label: 'Organize', hint: 'Rules, labels, blocked senders', icon: Filter },
+  { id: 'security', label: 'Security', hint: 'Two-factor and devices', icon: ShieldCheck },
+  { id: 'developer', label: 'API & MCP', hint: 'Assistants and API keys', icon: Code2 },
 ];
 
-function PageIcon({ page, size = 28 }: { page: (typeof PAGES)[number]; size?: number }) {
-  return (
-    <span className="flex shrink-0 items-center justify-center rounded-[7px] text-white" style={{ background: page.tint, width: size, height: size }}>
-      <page.icon style={{ width: size * 0.56, height: size * 0.56 }} />
-    </span>
-  );
+// Plain line icons, matching the mailbox sidebar.
+function PageIcon({ page, active }: { page: (typeof PAGES)[number]; active?: boolean }) {
+  return <page.icon className={cx('h-[18px] w-[18px] shrink-0 lg:h-4 lg:w-4', active ? 'text-fg' : 'text-fg-3')} />;
 }
 
 function Group({ id, title, footer, children }: { id: string; title: string; footer?: ReactNode; children: ReactNode }) {
@@ -175,7 +172,7 @@ function SettingsPage() {
                 active === p.id ? 'lg:bg-fill-2' : 'hover:bg-fill',
               )}
             >
-              <PageIcon page={p} />
+              <PageIcon page={p} active={active === p.id} />
               <span className="min-w-0 flex-1">
                 <span className="block text-[14.5px] font-medium lg:text-[13.5px]">{p.label}</span>
                 <span className="block truncate text-[12px] text-fg-3 lg:hidden">{p.hint}</span>
@@ -193,12 +190,9 @@ function SettingsPage() {
           </button>
         </div>
         <div key={active} className="fade-up mx-auto max-w-[680px] space-y-9 px-4 pb-24 pt-2 sm:px-6 lg:pt-10">
-          <div className="flex items-center gap-3">
-            <PageIcon page={page} size={36} />
-            <div>
-              <h2 className="font-display text-[26px] font-bold leading-tight tracking-[-0.025em]">{page.label}</h2>
-              <p className="text-[13px] text-fg-3">{page.hint}</p>
-            </div>
+          <div>
+            <h2 className="font-display text-[26px] font-bold leading-tight tracking-[-0.025em]">{page.label}</h2>
+            <p className="mt-0.5 text-[13px] text-fg-3">{page.hint}</p>
           </div>
           {content}
         </div>

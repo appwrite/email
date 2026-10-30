@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { APP_NAME, AppwriteLogotype, EmailLockup } from './brand';
+import { useBrand } from '~/lib/brand';
+import { AppwriteLogotype, EmailLockup } from './brand';
 
 export function SoftLights({ className }: { className?: string }) {
   return (
@@ -12,11 +13,12 @@ export function SoftLights({ className }: { className?: string }) {
 }
 
 export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
+  const brand = useBrand();
   return (
     <div className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-bg">
       <SoftLights />
       <header className="flex h-16 items-center px-5 sm:px-8">
-        <Link to="/" aria-label={`${APP_NAME} home`}>
+        <Link to="/" aria-label={`${brand.name} home`}>
           <EmailLockup size={20} />
         </Link>
       </header>
@@ -31,7 +33,7 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
         </div>
       </main>
       <footer className="flex items-center justify-between gap-4 px-5 py-6 text-[12px] text-fg-3 sm:px-8">
-        <span>© {new Date().getFullYear()} {APP_NAME}</span>
+        <span>© {new Date().getFullYear()} {brand.name}</span>
         <a href="https://appwrite.io" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 transition hover:text-fg">
           Runs on <AppwriteLogotype className="h-[15px] text-fg-2" />
         </a>
