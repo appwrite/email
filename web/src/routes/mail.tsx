@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { CommandPalette } from '~/components/CommandPalette';
+import { ContextMenuHost } from '~/components/ContextMenu';
 import { ComposerDock } from '~/components/Composer';
 import { ShortcutsHelp } from '~/components/ShortcutsHelp';
 import { Sidebar } from '~/components/Sidebar';
@@ -9,7 +10,7 @@ import type { MailboxRow, MessageRow } from '~/lib/appwrite';
 import { MailContext, useMailRealtime } from '~/lib/mail-context';
 import { restoreCache, startPersisting } from '~/lib/persist';
 import { warmUp } from '~/lib/prefetch';
-import { fetchAccount, fetchMailbox, queryClient, useCounts } from '~/lib/queries';
+import { fetchAccount, fetchMailbox, queryClient, useContacts, useCounts } from '~/lib/queries';
 import { forgetDevice } from '~/lib/session';
 import { useGlobalShortcuts } from '~/lib/shortcuts';
 import { DEFAULT_PREFS, openComposer, updatePrefs, type Prefs } from '~/lib/store';
@@ -29,11 +30,8 @@ function Splash() {
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-bg" aria-busy>
       <aside className="hidden w-[248px] shrink-0 border-r border-line bg-sidebar md:block">
-        <div className="flex h-[52px] items-center px-4">
+        <div className="flex h-[52px] items-center justify-between pl-4 pr-3">
           <EmailLockup size={18} />
-        </div>
-        <div className="flex gap-2 px-3">
-          <div className="h-8 flex-1 rounded-md border border-line dark:border-line-strong" />
           <div className="h-8 w-8 rounded-md bg-accent" />
         </div>
       </aside>
@@ -110,6 +108,8 @@ function MailLayout() {
   useGlobalShortcuts(!!session);
 
   const counts = useCounts(session?.user.$id);
+  // Context menus check whether a sender is already a contact.
+  useContacts(session?.user.$id);
   useEffect(() => {
     const unread = counts.data?.inbox || 0;
     document.title = unread ? `Inbox (${unread}) — Mail` : 'Mail';
@@ -134,6 +134,7 @@ function MailLayout() {
       </div>
       <ComposerDock />
       <CommandPalette />
+      <ContextMenuHost />
       <ShortcutsHelp />
     </MailContext.Provider>
   );

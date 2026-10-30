@@ -22,6 +22,8 @@ import {
   Star,
   Tag,
   Trash2,
+  UserPlus,
+  UserRound,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { callApi } from '~/lib/api';
@@ -35,7 +37,10 @@ import {
   type MessageRow,
 } from '~/lib/appwrite';
 import {
+  addContact,
   archive,
+  blockSender as blockSenderAction,
+  findContact,
   forward,
   moveTo,
   reply,
@@ -50,7 +55,9 @@ import {
 import { FOLDERS, LABEL_COLORS } from '~/lib/folders';
 import { displayName, escapeHtml, fullDate, listDate, parseAddress, shortDateTime } from '~/lib/format';
 import { useMail } from '~/lib/mail-context';
-import { createLabel, deleteMessagesForever, findCachedRow, queryClient, useLabels, useSettings, useThread } from '~/lib/queries';
+import { addressMenu, messageMenu } from '~/lib/menus';
+import { openContextMenu } from './ContextMenu';
+import { createLabel, deleteMessagesForever, findCachedRow, useLabels, useSettings, useThread } from '~/lib/queries';
 import { GateProvider, HoldWhile, useHold, useReadyGate } from '~/lib/ready-gate';
 import { openComposer, toast } from '~/lib/store';
 import { Attachments } from './Attachments';
@@ -154,14 +161,23 @@ export function Reader({
   };
 
   const blockSender = async () => {
-    const email = current.fromEmail.toLowerCase();
-    const list = [...new Set([...(settings?.blockedSenders || []), email])];
-    await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: TABLES.settings, rowId: user.$id, data: { blockedSenders: list } });
-    queryClient.invalidateQueries({ queryKey: ['settings'] });
-    await trash([current.$id]);
-    toast({ title: `Blocked ${email}`, description: 'Future mail goes straight to Trash.', tone: 'success' });
+    await blockSenderAction(user.$id, settings?.blockedSenders || [], current.fromEmail, [current.$id]);
     close();
   };
+  const isFromMe = current.fromEmail.toLowerCase() === mailbox.address.toLowerCase();
+  const senderContact = !isFromMe ? findContact(user.$id, current.fromEmail) : undefined;
+  const menuCtx = (row: MessageRow) => ({
+    uid: user.$id,
+    mailbox,
+    labels,
+    signature: settings?.signature,
+    blocked: settings?.blockedSenders || [],
+    ids: [row.$id],
+    onRemoved: () => row.$id === current.$id && close(),
+  });
+  const onMessageMenu = (e: React.MouseEvent, row: MessageRow) => openContextMenu(e, messageMenu(row, menuCtx(row)));
+  const onAddressMenu = (e: React.MouseEvent, person: { name?: string; email: string }) =>
+    openContextMenu(e, addressMenu(user.$id, person, settings?.blockedSenders || []));
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
@@ -370,9 +386,24 @@ export function Reader({
           >
             Print
           </MenuItem>
-          {current.fromEmail !== mailbox.address && (
+          {!isFromMe && (
             <>
               <MenuSeparator />
+              {senderContact ? (
+                <MenuItem icon={<UserRound />} onClick={() => window.location.assign(`/mail/contacts?c=${senderContact.$id}`)}>
+                  Open contact
+                </MenuItem>
+              ) : (
+                <MenuItem
+                  icon={<UserPlus />}
+                  onClick={() => {
+                    setMenu(null);
+                    addContact(user.$id, { name: current.fromName, email: current.fromEmail });
+                  }}
+                >
+                  Add {displayName({ name: current.fromName, email: current.fromEmail })} to Contacts
+                </MenuItem>
+              )}
               <MenuItem icon={<Ban />} danger onClick={blockSender}>
                 Block {displayName({ name: current.fromName, email: current.fromEmail })}
               </MenuItem>
@@ -425,6 +456,10 @@ export function Reader({
                 }
                 onReply={(all) => reply(row, mailbox, all, settings?.signature)}
                 onForward={() => forward(row, settings?.signature)}
+                onMenu={(e) => onMessageMenu(e, row)}
+                onAddressMenu={onAddressMenu}
+                isContact={!!findContact(user.$id, row.fromEmail)}
+                onAddContact={() => addContact(user.$id, { name: row.fromName, email: row.fromEmail })}
                 self={mailbox.address}
               />
             ))}
@@ -569,6 +604,31 @@ function StatusBanner({ row }: { row: MessageRow }) {
   return null;
 }
 
+// Each address is its own target: click or right-click for its menu.
+function AddressList({ values, onMenu }: { values: string[]; onMenu: (e: React.MouseEvent, p: { name?: string; email: string }) => void }) {
+  return (
+    <>
+      {values.map((v, i) => {
+        const a = parseAddress(v);
+        return (
+          <span key={v + i}>
+            {i > 0 && ', '}
+            <button
+              type="button"
+              onClick={(e) => onMenu(e, a)}
+              onContextMenu={(e) => onMenu(e, a)}
+              className="rounded text-left hover:text-accent"
+              title="Options for this address"
+            >
+              {v}
+            </button>
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function MessageCard({
   row,
   expanded,
@@ -576,9 +636,17 @@ function MessageCard({
   onToggle,
   onReply,
   onForward,
+  onMenu,
+  onAddressMenu,
+  isContact,
+  onAddContact,
   self,
 }: {
   row: MessageRow;
+  onMenu: (e: React.MouseEvent) => void;
+  onAddressMenu: (e: React.MouseEvent, person: { name?: string; email: string }) => void;
+  isContact: boolean;
+  onAddContact: () => void;
   expanded: boolean;
   inThread: boolean;
   onToggle: () => void;
@@ -589,6 +657,7 @@ function MessageCard({
   const [details, setDetails] = useState(false);
   const attachments = parseAttachments(row.attachments).filter((a) => !a.inline);
   const name = displayName({ name: row.fromName, email: row.fromEmail });
+  const fromSelf = row.fromEmail.toLowerCase() === self.toLowerCase();
   const recipients = [...(row.to || []), ...(row.cc || [])].map((v) => {
     const a = parseAddress(v);
     return isOwnAddress(a.email, self.split('@')[0]) ? 'me' : displayName(a);
@@ -602,6 +671,7 @@ function MessageCard({
           expanded ? 'pt-5' : '-mx-3 my-1 px-3 py-3 transition-colors hover:bg-fill',
         )}
         onClick={inThread ? onToggle : undefined}
+        onContextMenu={onMenu}
       >
         <Avatar name={name} email={row.fromEmail} size={expanded ? 44 : 36} />
         <div className="min-w-0 flex-1">
@@ -632,14 +702,23 @@ function MessageCard({
             <span className="shrink-0 text-[12.5px] tabular-nums text-fg-3" title={fullDate(row.date)}>
               {expanded ? shortDateTime(row.date) : listDate(row.date)}
             </span>
-            {expanded && inThread && (
+            {expanded && (
               <div className="-my-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/msg:opacity-100 no-print" onClick={(e) => e.stopPropagation()}>
-                <IconButton size="sm" label="Reply" onClick={() => onReply(false)}>
-                  <Reply className="h-4 w-4" />
-                </IconButton>
-                <IconButton size="sm" label="Forward" onClick={onForward}>
-                  <Forward className="h-4 w-4" />
-                </IconButton>
+                {!isContact && !fromSelf && (
+                  <IconButton size="sm" label="Add sender to Contacts" onClick={onAddContact}>
+                    <UserPlus className="h-4 w-4" />
+                  </IconButton>
+                )}
+                {inThread && (
+                  <>
+                    <IconButton size="sm" label="Reply" onClick={() => onReply(false)}>
+                      <Reply className="h-4 w-4" />
+                    </IconButton>
+                    <IconButton size="sm" label="Forward" onClick={onForward}>
+                      <Forward className="h-4 w-4" />
+                    </IconButton>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -654,23 +733,31 @@ function MessageCard({
             className="mt-3 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 overflow-hidden rounded-xl bg-fill px-4 py-3 text-[12.5px] sm:ml-[58px]"
           >
             <dt className="text-[12px] text-fg-3 leading-[18px]">From</dt>
-            <dd className="break-all">{row.fromName ? `${row.fromName} <${row.fromEmail}>` : row.fromEmail}</dd>
+            <dd className="break-all">
+              <AddressList values={[row.fromName ? `${row.fromName} <${row.fromEmail}>` : row.fromEmail]} onMenu={onAddressMenu} />
+            </dd>
             {row.to?.length > 0 && (
               <>
                 <dt className="text-[12px] text-fg-3 leading-[18px]">To</dt>
-                <dd className="break-all">{row.to.join(', ')}</dd>
+                <dd className="break-all">
+                  <AddressList values={row.to} onMenu={onAddressMenu} />
+                </dd>
               </>
             )}
             {row.cc?.length > 0 && (
               <>
                 <dt className="text-[12px] text-fg-3 leading-[18px]">Cc</dt>
-                <dd className="break-all">{row.cc.join(', ')}</dd>
+                <dd className="break-all">
+                  <AddressList values={row.cc} onMenu={onAddressMenu} />
+                </dd>
               </>
             )}
             {row.bcc?.length > 0 && (
               <>
                 <dt className="text-[12px] text-fg-3 leading-[18px]">Bcc</dt>
-                <dd className="break-all">{row.bcc.join(', ')}</dd>
+                <dd className="break-all">
+                  <AddressList values={row.bcc} onMenu={onAddressMenu} />
+                </dd>
               </>
             )}
             {row.replyTo && (

@@ -35,5 +35,17 @@ export function folderIcon(id: string): LucideIcon {
 }
 
 export const LABEL_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#5856d6', '#af52de', '#ff2d55', '#8e8e93'];
+export const LABEL_COLOR_NAMES: Record<string, string> = {
+  '#ff3b30': 'Red',
+  '#ff9500': 'Orange',
+  '#ffcc00': 'Yellow',
+  '#34c759': 'Green',
+  '#00c7be': 'Mint',
+  '#007aff': 'Blue',
+  '#5856d6': 'Indigo',
+  '#af52de': 'Purple',
+  '#ff2d55': 'Pink',
+  '#8e8e93': 'Gray',
+};
 
 export const VALID_FOLDERS = new Set(FOLDERS.map((f) => f.id as string).concat('label'));

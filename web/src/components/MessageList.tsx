@@ -24,7 +24,9 @@ import { archive, moveTo, setRead, spam, toggleLabel, toggleStar, trash } from '
 import { FOLDERS, FOLDER_LABELS, folderIcon } from '~/lib/folders';
 import { displayName, listDate, parseAddress, relativeTime } from '~/lib/format';
 import { useMail } from '~/lib/mail-context';
-import { prefetchThread, queryClient, useCounts, useLabels, useMessages, type View } from '~/lib/queries';
+import { prefetchThread, queryClient, useCounts, useLabels, useMessages, useSettings, type View } from '~/lib/queries';
+import { messageMenu } from '~/lib/menus';
+import { openContextMenu } from './ContextMenu';
 import { prefsStore, uiStore } from '~/lib/store';
 import { DRAG_TYPE } from './Sidebar';
 import { Avatar, Empty, IconButton, Kbd, warmAvatars, MenuItem, MenuLabel, MenuSeparator, Popover, Spinner, cx } from './ui';
@@ -52,7 +54,8 @@ export function MessageList({
   onFilter: (filter: View['filter']) => void;
   searchRef: React.RefObject<HTMLInputElement | null>;
 }) {
-  const { user } = useMail();
+  const { user, mailbox } = useMail();
+  const settings = useSettings(user.$id).data;
   const query = useMessages(user.$id, view);
   const labels = useLabels(user.$id).data || [];
   const counts = useCounts(user.$id).data;
@@ -135,6 +138,27 @@ export function MessageList({
   }
 
   const selectedIds = [...selection];
+
+  // Right-click acts on the selection when the row is part of it, else on the row.
+  function menu(e: MouseEvent, row: MessageRow) {
+    const inSelection = selection.has(row.$id);
+    openContextMenu(
+      e,
+      messageMenu(row, {
+        uid: user.$id,
+        mailbox,
+        labels,
+        signature: settings?.signature,
+        blocked: settings?.blockedSenders || [],
+        ids: inSelection ? selectedIds : [row.$id],
+        onOpen: () => onOpen(row),
+        selected: inSelection,
+        onSelect: () => toggle(row.$id),
+        onRemoved: () => inSelection && setSelection(new Set()),
+      }),
+    );
+  }
+
   const endSelection = () => {
     setSelection(new Set());
     setSelectMode(false);
@@ -283,6 +307,7 @@ export function MessageList({
                 snippets={prefs.snippets}
                 folder={view.folder}
                 onClick={click}
+                onMenu={menu}
                 dragIds={selection.has(row.$id) ? selectedIds : [row.$id]}
               />
             ))}
@@ -304,6 +329,7 @@ const MessageItem = memo(function MessageItem({
   snippets,
   folder,
   onClick,
+  onMenu,
   dragIds,
   selecting,
   onToggle,
@@ -317,6 +343,7 @@ const MessageItem = memo(function MessageItem({
   snippets: boolean;
   folder: string;
   onClick: (e: MouseEvent, row: MessageRow) => void;
+  onMenu: (e: MouseEvent, row: MessageRow) => void;
   dragIds: string[];
 }) {
   const outgoing = folder === 'sent' || folder === 'scheduled';
@@ -345,6 +372,7 @@ const MessageItem = memo(function MessageItem({
         setTimeout(() => ghost.remove(), 0);
       }}
       onClick={(e) => onClick(e, row)}
+      onContextMenu={(e) => onMenu(e, row)}
       onMouseEnter={() => prefetchThread(row.ownerId, row.threadId)}
       className={cx(
         'group relative mx-2 flex cursor-default gap-3 rounded-md px-3 transition-colors duration-75',

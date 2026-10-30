@@ -1,9 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Download, ExternalLink, File, FileArchive, FileAudio, FileImage, FileSpreadsheet, FileText, FileVideo, Presentation, X } from 'lucide-react';
+import { Copy, Download, Eye, ExternalLink, File, FileArchive, FileAudio, FileImage, FileSpreadsheet, FileText, FileVideo, Presentation, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fileUrl, filePreviewUrl, type Attachment } from '~/lib/appwrite';
 import { bytes, fileIcon } from '~/lib/format';
+import { copyText } from '~/lib/actions';
+import { openContextMenu } from './ContextMenu';
 import { cx } from './ui';
 
 const ICONS = {
@@ -39,7 +41,29 @@ export function Attachments({ items }: { items: Attachment[] }) {
           const kind = fileIcon(a.type, a.name);
           const previewable = (kind === 'image' && !/svg|heic/.test(a.type)) || kind === 'pdf';
           return (
-            <div key={a.id} className="group relative w-[180px]">
+            <div
+              key={a.id}
+              className="group relative w-[180px]"
+              onContextMenu={(e) =>
+                openContextMenu(e, [
+                  { heading: a.name },
+                  previewable && { label: 'Quick Look', icon: <Eye />, onSelect: () => setPreview(a) },
+                  { label: 'Open in New Tab', icon: <ExternalLink />, onSelect: () => window.open(fileUrl(a), '_blank') },
+                  {
+                    label: 'Download',
+                    icon: <Download />,
+                    onSelect: () => {
+                      const link = document.createElement('a');
+                      link.href = fileUrl(a, 'download');
+                      link.download = a.name;
+                      link.click();
+                    },
+                  },
+                  { separator: true },
+                  { label: 'Copy Link', icon: <Copy />, onSelect: () => copyText(fileUrl(a), 'Link copied') },
+                ])
+              }
+            >
               <button className="block w-full text-left" onClick={() => (previewable ? setPreview(a) : window.open(fileUrl(a), '_blank'))}>
                 <div className="flex h-[120px] items-center justify-center overflow-hidden rounded-2xl bg-fill transition-[transform,box-shadow] duration-200 ease-apple group-hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] group-active:scale-[0.98]">
                   {kind === 'image' && !/svg|heic/.test(a.type) ? (

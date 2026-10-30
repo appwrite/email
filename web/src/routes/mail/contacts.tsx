@@ -1,18 +1,20 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Query } from 'appwrite';
-import { ArrowLeft, Mail, Menu, Plus, Search, Star, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Copy, Mail, Menu, PenSquare, Plus, Search, Star, Trash2, UserRound, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Empty, Field, IconButton, Input, Sheet, cx } from '~/components/ui';
 import { DATABASE_ID, TABLES, tablesDB, type ContactRow, type MessageRow } from '~/lib/appwrite';
-import { compose } from '~/lib/actions';
+import { compose, copyText } from '~/lib/actions';
 import { displayName, formatAddress, isEmail, listDate, sha1Hex } from '~/lib/format';
 import { useMail } from '~/lib/mail-context';
 import { ownerPerms, queryClient, useContacts, useSettings } from '~/lib/queries';
-import { toast, uiStore } from '~/lib/store';
+import { openComposer, toast, uiStore } from '~/lib/store';
+import { openContextMenu } from '~/components/ContextMenu';
 
 export const Route = createFileRoute('/mail/contacts')({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>): { c?: string } => ({ c: typeof s.c === 'string' ? s.c : undefined }),
   component: Contacts,
 });
 
@@ -20,7 +22,11 @@ function Contacts() {
   const { user } = useMail();
   const contacts = useContacts(user.$id);
   const [q, setQ] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
+  const search = Route.useSearch();
+  const [selected, setSelected] = useState<string | null>(search.c || null);
+  useEffect(() => {
+    if (search.c) setSelected(search.c);
+  }, [search.c]);
   const [adding, setAdding] = useState(false);
 
   const list = useMemo(() => {
@@ -88,6 +94,34 @@ function Contacts() {
                     <button
                       key={c.$id}
                       onClick={() => setSelected(c.$id)}
+                      onContextMenu={(e) =>
+                        openContextMenu(e, [
+                          { heading: displayName(c) },
+                          { label: 'New Message', icon: <PenSquare />, onSelect: () => openComposer({ to: [formatAddress({ name: c.name, email: c.email })], focus: 'body' }) },
+                          { label: 'Open Contact', icon: <UserRound />, onSelect: () => setSelected(c.$id) },
+                          {
+                            label: c.favorite ? 'Remove from Favorites' : 'Add to Favorites',
+                            icon: <Star />,
+                            onSelect: async () => {
+                              await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: TABLES.contacts, rowId: c.$id, data: { favorite: !c.favorite } });
+                              queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                            },
+                          },
+                          { label: 'Copy Address', icon: <Copy />, onSelect: () => copyText(c.email, 'Address copied') },
+                          { separator: true },
+                          {
+                            label: 'Delete Contact',
+                            icon: <Trash2 />,
+                            danger: true,
+                            onSelect: async () => {
+                              await tablesDB.deleteRow({ databaseId: DATABASE_ID, tableId: TABLES.contacts, rowId: c.$id });
+                              queryClient.invalidateQueries({ queryKey: ['contacts'] });
+                              if (selected === c.$id) setSelected(null);
+                              toast({ title: `Deleted ${displayName(c)}`, tone: 'success' });
+                            },
+                          },
+                        ])
+                      }
                       className={cx('mx-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-md px-2 py-2 text-left', selected === c.$id ? 'bg-selected' : 'hover:bg-fill')}
                     >
                       <Avatar name={displayName(c)} email={c.email} size={34} />

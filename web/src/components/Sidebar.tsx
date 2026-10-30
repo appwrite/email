@@ -4,21 +4,28 @@ import {
   ChevronDown,
   Copy,
   LogOut,
+  MailOpen,
   Monitor,
   Moon,
+  Palette,
   PenSquare,
   Plus,
   Settings,
   Sun,
+  Tag as TagIcon,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
-import { FOLDERS, LABEL_COLORS } from '~/lib/folders';
+import { emptyTrash, markFolderRead } from '~/lib/actions';
+import { DATABASE_ID, TABLES, tablesDB } from '~/lib/appwrite';
+import { FOLDERS, LABEL_COLORS, LABEL_COLOR_NAMES } from '~/lib/folders';
 import { useMail } from '~/lib/mail-context';
 import { signOut } from '~/lib/session';
-import { createLabel, findCachedRow, makeView, prefetchFolder, updateMessages, useCounts, useLabels } from '~/lib/queries';
+import { createLabel, findCachedRow, makeView, prefetchFolder, queryClient, updateMessages, useCounts, useLabels } from '~/lib/queries';
 import { openComposer, prefsStore, toast, uiStore, updatePrefs } from '~/lib/store';
 import { EmailLockup } from './brand';
+import { openContextMenu } from './ContextMenu';
 import { Avatar, IconButton, MenuItem, MenuSeparator, Popover, cx } from './ui';
 
 export const DRAG_TYPE = 'application/x-appwrite-email';
@@ -55,6 +62,7 @@ function NavItem({
   onDropIds,
   search,
   onHover,
+  onMenu,
 }: {
   to: string;
   folder?: string;
@@ -66,6 +74,7 @@ function NavItem({
   onDropIds?: (ids: string[]) => void;
   search?: Record<string, string>;
   onHover?: () => void;
+  onMenu?: (e: React.MouseEvent) => void;
 }) {
   const drop = useDrop((ids) => onDropIds?.(ids));
   return (
@@ -75,6 +84,7 @@ function NavItem({
       search={search as never}
       onClick={() => uiStore.set({ sidebarOpen: false })}
       onMouseEnter={onHover}
+      onContextMenu={onMenu}
       onFocus={onHover}
       {...(onDropIds ? drop.props : {})}
       className={cx(
@@ -146,6 +156,19 @@ export function Sidebar() {
               icon={f.icon}
               count={f.count ? counts[f.count] : undefined}
               active={params.folder === f.id}
+              onMenu={(e) =>
+                openContextMenu(e, [
+                  { heading: f.label },
+                  { label: 'Open', icon: <f.icon />, onSelect: () => navigate({ to: '/mail/$folder', params: { folder: f.id } }) },
+                  ['inbox', 'archive', 'spam', 'all'].includes(f.id) && {
+                    label: 'Mark All as Read',
+                    icon: <MailOpen />,
+                    onSelect: () => (f.id === 'all' ? ['inbox', 'archive'] : [f.id]).forEach((id) => markFolderRead(user.$id, id)),
+                  },
+                  (f.id === 'trash' || f.id === 'spam') && { separator: true },
+                  (f.id === 'trash' || f.id === 'spam') && { label: 'Empty Trash and Junk', icon: <Trash2 />, danger: true, onSelect: () => emptyTrash() },
+                ])
+              }
               onDropIds={['inbox', 'archive', 'spam', 'trash'].includes(f.id) ? move(f.id) : f.id === 'starred' ? (ids) => updateMessages(ids, { starred: true }) : undefined}
             />
           ))}
@@ -185,6 +208,40 @@ export function Sidebar() {
                   label={l.name}
                   color={l.color}
                   active={params.folder === 'label' && search.label === l.$id}
+                  onMenu={(e) =>
+                    openContextMenu(e, [
+                      { heading: l.name },
+                      {
+                        label: 'Open',
+                        icon: <TagIcon />,
+                        onSelect: () => navigate({ to: '/mail/$folder', params: { folder: 'label' }, search: { label: l.$id } as never }),
+                      },
+                      {
+                        label: 'Color',
+                        icon: <Palette />,
+                        submenu: LABEL_COLORS.map((c) => ({
+                          label: LABEL_COLOR_NAMES[c] || c,
+                          icon: <span className="block h-2.5 w-2.5 rounded-full" style={{ background: c }} />,
+                          checked: l.color === c,
+                          onSelect: async () => {
+                            await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: TABLES.labels, rowId: l.$id, data: { color: c } });
+                            queryClient.invalidateQueries({ queryKey: ['labels'] });
+                          },
+                        })),
+                      },
+                      { separator: true },
+                      {
+                        label: 'Delete Label',
+                        icon: <Trash2 />,
+                        danger: true,
+                        onSelect: async () => {
+                          await tablesDB.deleteRow({ databaseId: DATABASE_ID, tableId: TABLES.labels, rowId: l.$id });
+                          queryClient.invalidateQueries({ queryKey: ['labels'] });
+                          toast({ title: `Deleted label ${l.name}`, tone: 'success' });
+                        },
+                      },
+                    ])
+                  }
                   onDropIds={(ids) => {
                     ids.forEach((id) => {
                       const current = findCachedRow(id)?.labels || [];

@@ -1,5 +1,6 @@
 import { callApi } from './api';
-import { isOwnAddress, parseAttachments, type MailboxRow, type MessageRow } from './appwrite';
+import { Query } from 'appwrite';
+import { DATABASE_ID, TABLES, isOwnAddress, parseAttachments, tablesDB, type ContactRow, type MailboxRow, type MessageRow } from './appwrite';
 import { FOLDER_LABELS } from './folders';
 import {
   displayName,
@@ -9,8 +10,9 @@ import {
   fullDate,
   parseAddress,
   replySubject,
+  sha1Hex,
 } from './format';
-import { deleteMessagesForever, findCachedRow, queryClient, updateMessages } from './queries';
+import { deleteMessagesForever, findCachedRow, ownerPerms, queryClient, updateMessages } from './queries';
 import { openComposer, toast, type ComposerState } from './store';
 
 function rowsFor(ids: string[]) {
@@ -192,4 +194,73 @@ export function forward(row: MessageRow, signature?: string) {
 
 export function senderLabel(row: MessageRow) {
   return displayName({ name: row.fromName, email: row.fromEmail });
+}
+
+// ---------------------------------------------------------------------------
+// Contacts, blocking and clipboard
+// ---------------------------------------------------------------------------
+
+/** Row ID shared with the server, which files contacts the same way. */
+export async function contactId(uid: string, email: string) {
+  return 'c' + (await sha1Hex(`${uid}:${email.trim().toLowerCase()}`)).slice(0, 32);
+}
+
+export function findContact(uid: string, email: string) {
+  const list = queryClient.getQueryData<ContactRow[]>(['contacts', uid]) || [];
+  const e = email.trim().toLowerCase();
+  return list.find((c) => c.email === e);
+}
+
+export async function addContact(uid: string, { email, name }: { email: string; name?: string }) {
+  const normalized = email.trim().toLowerCase();
+  const rowId = await contactId(uid, normalized);
+  try {
+    await tablesDB.upsertRow({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.contacts,
+      rowId,
+      data: { ownerId: uid, email: normalized, name: (name || '').trim(), timesContacted: 0 },
+      permissions: ownerPerms(uid),
+    });
+    await queryClient.invalidateQueries({ queryKey: ['contacts'] });
+    toast({
+      title: `Added ${name || normalized} to Contacts`,
+      tone: 'success',
+      action: { label: 'View', onClick: () => window.location.assign(`/mail/contacts?c=${rowId}`) },
+    });
+    return rowId;
+  } catch (e: any) {
+    toast({ title: 'Could not add contact', description: e.message, tone: 'error' });
+    return null;
+  }
+}
+
+export async function blockSender(uid: string, blocked: string[], email: string, ids: string[] = []) {
+  const address = email.trim().toLowerCase();
+  const list = [...new Set([...blocked, address])];
+  await tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: TABLES.settings, rowId: uid, data: { blockedSenders: list } });
+  queryClient.invalidateQueries({ queryKey: ['settings'] });
+  if (ids.length) await trash(ids);
+  toast({ title: `Blocked ${address}`, description: 'Future mail goes straight to Trash.', tone: 'success' });
+}
+
+export function copyText(text: string, what = 'Copied') {
+  navigator.clipboard.writeText(text).then(
+    () => toast({ title: what, tone: 'success', duration: 1600 }),
+    () => toast({ title: 'Could not copy', tone: 'error' }),
+  );
+}
+
+/** Marks every unread message in a folder as read. */
+export async function markFolderRead(uid: string, folder: string) {
+  const { rows } = await tablesDB.listRows<MessageRow>({
+    databaseId: DATABASE_ID,
+    tableId: TABLES.messages,
+    queries: [Query.equal('ownerId', uid), Query.equal('folder', folder), Query.equal('read', false), Query.select(['$id']), Query.limit(500)],
+    total: false,
+  });
+  if (!rows.length) return toast({ title: 'Nothing unread here', tone: 'success', duration: 1600 });
+  await updateMessages(rows.map((r) => r.$id), { read: true });
+  queryClient.invalidateQueries({ queryKey: ['counts'] });
+  toast({ title: `Marked ${plural(rows.length)} as read`, tone: 'success' });
 }
