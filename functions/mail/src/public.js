@@ -1,7 +1,7 @@
 // Public REST API and remote MCP server (Streamable HTTP). Callers sign in
 // with OAuth 2.1 through this project's OAuth2 server (MCP clients register
 // themselves and get one-click sign-in) or use a personal API key.
-import { ISSUER, API_SCOPES, SCOPE_INFO, authenticate, requireScope } from './lib/auth.js';
+import { ISSUER, API_SCOPES, PROJECT_AUDIENCE, SCOPE_INFO, authenticate, requireScope } from './lib/auth.js';
 import { services } from './lib/appwrite.js';
 import { HttpError } from './lib/compose.js';
 import { LIST_FOLDERS, MOVE_FOLDERS, getMessage, getThread, listLabels, listMessages, me, send, updateMessages } from './lib/mailapi.js';
@@ -371,13 +371,15 @@ export default async ({ req, res, log, error }) => {
       code ? `, error="${code}", error_description="${description.replace(/[^\x20-\x7e]|"/g, '').trim()}"` : ''
     }${status === 403 ? `, scope="${API_SCOPES.join(' ')}"` : ''}`,
   });
-  const auth = async () => authenticate(req, svc, [`${base}/mcp`, base, `${base}/`]);
+  // REST also takes project-audience tokens from clients that skip resource indicators.
+  const auth = async () => authenticate(req, svc, [`${base}/mcp`, base, `${base}/`, PROJECT_AUDIENCE]);
 
   if (path === '/mcp') {
     if (req.method !== 'POST') return json({ message: 'Use POST for MCP requests.' }, 405, { allow: 'POST, OPTIONS' });
     let caller;
     try {
-      caller = await auth();
+      // Only tokens bound to this server, so one minted for another API can't be replayed here.
+      caller = await authenticate(req, svc, [`${base}/mcp`]);
     } catch (e) {
       return json({ message: e.message }, 401, challenge(401, /^Bearer\s+\S/i.test(req.headers.authorization || '') ? 'invalid_token' : '', e.message));
     }

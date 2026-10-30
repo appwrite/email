@@ -17,7 +17,8 @@ export const SCOPE_INFO = {
 
 export const ISSUER = `${ENDPOINT}/oauth2/${PROJECT_ID}`;
 // Tokens requested without a resource indicator carry the project audience.
-const PROJECT_AUDIENCE = `${ENDPOINT}/${PROJECT_ID}`;
+// Only the REST API accepts it; MCP tokens must name the MCP resource.
+export const PROJECT_AUDIENCE = `${ENDPOINT}/${PROJECT_ID}`;
 const jwks = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
 
 export function hashKey(secret) {
@@ -55,7 +56,7 @@ async function fromAccessToken(token, resources) {
     throw new HttpError(401, 'The access token is invalid or expired.');
   }
   const aud = [].concat(payload.aud || []);
-  if (!aud.some((a) => a === PROJECT_AUDIENCE || resources.includes(a))) {
+  if (!aud.some((a) => resources.includes(a))) {
     throw new HttpError(401, 'The access token was issued for a different resource.');
   }
   if (!payload.sub) throw new HttpError(401, 'The access token has no user.');

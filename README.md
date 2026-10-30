@@ -51,7 +51,7 @@ The `public` function serves a REST API and a remote MCP server (Streamable HTTP
 
 - **MCP:** add `https://email-api.appwrite.network/mcp` to Claude, ChatGPT, Cursor or VS Code. The server answers unauthenticated calls with a `WWW-Authenticate` challenge pointing to its protected resource metadata, the client registers itself with the project's OAuth2 server (dynamic client registration), and the user signs in and approves scopes on the app's consent screen at `/oauth/consent`. Tools: `get_mailbox`, `list_messages`, `read_message`, `read_thread`, `list_labels`, `send_email`, `reply_to_email`, `update_messages`.
 - **REST:** `GET /v1/me`, `GET /v1/messages`, `GET /v1/messages/{id}`, `GET /v1/threads/{id}`, `GET /v1/labels`, `POST /v1/messages`, `PATCH /v1/messages[/{id}]`, `DELETE /v1/messages/{id}`.
-- **Auth:** OAuth 2.1 access tokens from the Appwrite project (RS256 JWTs verified against its JWKS, audience checked), or personal API keys (`mk_…`) created in Settings and stored as SHA-256 hashes.
+- **Auth:** OAuth 2.1 access tokens from the Appwrite project (RS256 JWTs verified against its JWKS; the MCP server only accepts tokens issued for its `/mcp` resource, while the REST API also takes project-audience tokens), or personal API keys (`mk_…`) created in Settings and stored as SHA-256 hashes.
 - **Scopes:** `mail.read`, `mail.send`, `mail.modify`.
 
 To enable the OAuth2 server on your own project, set the authorization URL to `https://<your-site>/oauth/consent` and allow the scopes `openid profile email offline_access mail.read mail.send mail.modify` (Auth → OAuth2 server, or `project.updateOAuth2Server`).
