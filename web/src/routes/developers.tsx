@@ -197,7 +197,7 @@ function Developers() {
               <h3 className="mt-3 text-[17px] font-semibold text-fg">API keys for scripts</h3>
               <p className="mt-1.5 text-[14.5px]">
                 Create a key in{' '}
-                <Link to="/mail/settings" className="text-accent">
+                <Link to="/mail/settings" search={{ section: 'developer' }} className="text-accent">
                   Settings → API keys
                 </Link>{' '}
                 with just the permissions it needs, and send it as a bearer token. Revoke it any time.

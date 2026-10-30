@@ -4,13 +4,13 @@ import { AuthenticatorType, ID } from 'appwrite';
 import {
   Ban,
   Bell,
-  CalendarOff,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Code2,
   Copy,
   ExternalLink,
   Filter,
-  Forward,
   KeyRound,
   Laptop,
   Menu,
@@ -19,12 +19,11 @@ import {
   Plus,
   ShieldCheck,
   Smartphone,
-  Tag,
   Trash2,
   User,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Button, Field, IconButton, Input, Segmented, Sheet, Switch, cx } from '~/components/ui';
 import { callApi } from '~/lib/api';
 import { API_SCOPES, API_URL, INSTALL, MCP_URL } from '~/lib/developer';
@@ -37,24 +36,34 @@ import { createLabel, queryClient, useLabels, useSettings } from '~/lib/queries'
 import { forgetDevice, signOut } from '~/lib/session';
 import { prefsStore, toast, uiStore, updatePrefs, type Prefs } from '~/lib/store';
 
+type Section = 'account' | 'appearance' | 'notifications' | 'mail' | 'organize' | 'security' | 'developer';
+
 export const Route = createFileRoute('/mail/settings')({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>): { section?: Section } => ({
+    section: PAGES.some((p) => p.id === s.section) ? (s.section as Section) : undefined,
+  }),
   component: SettingsPage,
 });
 
-const SECTIONS = [
-  ['account', 'Account', User],
-  ['appearance', 'Appearance', Palette],
-  ['notifications', 'Notifications', Bell],
-  ['signature', 'Signature', PenLine],
-  ['vacation', 'Vacation reply', CalendarOff],
-  ['forwarding', 'Forwarding', Forward],
-  ['rules', 'Rules', Filter],
-  ['labels', 'Labels', Tag],
-  ['blocked', 'Blocked', Ban],
-  ['security', 'Security', ShieldCheck],
-  ['developer', 'API & MCP', Code2],
-] as const;
+// Settings are split into pages, each with its own URL (?section=…).
+const PAGES: { id: Section; label: string; hint: string; icon: typeof User; tint: string }[] = [
+  { id: 'account', label: 'Account', hint: 'Address, name, password', icon: User, tint: '#8e8e93' },
+  { id: 'appearance', label: 'Appearance', hint: 'Theme, density, previews', icon: Palette, tint: '#5856d6' },
+  { id: 'notifications', label: 'Notifications', hint: 'Alerts and sounds', icon: Bell, tint: '#ff3b30' },
+  { id: 'mail', label: 'Mail', hint: 'Signature, vacation reply, forwarding', icon: PenLine, tint: '#007aff' },
+  { id: 'organize', label: 'Organize', hint: 'Rules, labels, blocked senders', icon: Filter, tint: '#34c759' },
+  { id: 'security', label: 'Security', hint: 'Two-factor and devices', icon: ShieldCheck, tint: '#ff9500' },
+  { id: 'developer', label: 'API & MCP', hint: 'Assistants and API keys', icon: Code2, tint: '#30b0c7' },
+];
+
+function PageIcon({ page, size = 28 }: { page: (typeof PAGES)[number]; size?: number }) {
+  return (
+    <span className="flex shrink-0 items-center justify-center rounded-[7px] text-white" style={{ background: page.tint, width: size, height: size }}>
+      <page.icon style={{ width: size * 0.56, height: size * 0.56 }} />
+    </span>
+  );
+}
 
 function Group({ id, title, footer, children }: { id: string; title: string; footer?: ReactNode; children: ReactNode }) {
   return (
@@ -89,7 +98,12 @@ async function savePrefs(patch: Partial<Prefs>) {
 function SettingsPage() {
   const { user } = useMail();
   const settings = useSettings(user.$id);
-  const scroller = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { section } = Route.useSearch();
+  const go = (id?: Section) => navigate({ to: '/mail/settings', search: id ? { section: id } : {}, replace: !!section && !!id });
+  // Wide screens always show a page; narrow ones start from the list.
+  const active = section || 'account';
+  const page = PAGES.find((p) => p.id === active)!;
 
   const patchSettings = async (data: Partial<SettingsRow>, message = 'Saved') => {
     const prev = settings.data;
@@ -103,46 +117,90 @@ function SettingsPage() {
     }
   };
 
+  const content = (() => {
+    const data = settings.data;
+    switch (active) {
+      case 'account':
+        return (
+          <>
+            <AccountSection />
+            <DangerSection />
+          </>
+        );
+      case 'appearance':
+        return <AppearanceSection />;
+      case 'notifications':
+        return <NotificationsSection />;
+      case 'mail':
+        return data ? (
+          <>
+            <SignatureSection settings={data} save={patchSettings} />
+            <VacationSection settings={data} save={patchSettings} />
+            <ForwardingSection settings={data} save={patchSettings} />
+          </>
+        ) : null;
+      case 'organize':
+        return data ? (
+          <>
+            <RulesSection settings={data} save={patchSettings} />
+            <LabelsSection />
+            <BlockedSection settings={data} save={patchSettings} />
+          </>
+        ) : null;
+      case 'security':
+        return <SecuritySection />;
+      case 'developer':
+        return <DeveloperSection />;
+    }
+  })();
+
   return (
     <div className="flex min-w-0 flex-1 bg-bg">
-      <nav className="scroll-thin hidden w-[220px] shrink-0 overflow-y-auto border-r border-line px-3 py-5 xl:block">
-        <h1 className="mb-5 px-2 font-display font-bold text-[24px] leading-none tracking-[-0.015em]">
-          Settings
-        </h1>
-        {SECTIONS.map(([id, label, Icon]) => (
-          <button
-            key={id}
-            onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}
-            className="group flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-[13px] text-fg-2 hover:bg-fill hover:text-fg"
-          >
-            <Icon className="h-4 w-4 text-fg-3 group-hover:text-fg-2" /> {label}
-          </button>
-        ))}
-      </nav>
-      <div ref={scroller} className="scroll-thin flex-1 overflow-y-auto">
-        <div className="flex h-[52px] items-center gap-1 px-3 xl:hidden">
+      {/* Page list: a sidebar on wide screens, the first screen on narrow ones. */}
+      <nav className={cx('scroll-thin w-full shrink-0 overflow-y-auto border-r border-line bg-sidebar lg:block lg:w-[260px]', section ? 'hidden' : 'block')}>
+        <div className="flex h-[52px] items-center gap-1 px-3 lg:hidden">
           <IconButton label="Mailboxes" className="md:hidden" onClick={() => uiStore.set({ sidebarOpen: true })}>
             <Menu className="h-5 w-5" />
           </IconButton>
-          <h1 className="pl-1 font-display font-bold text-[19px] tracking-[-0.01em]">Settings</h1>
         </div>
-        <div className="mx-auto max-w-[680px] space-y-9 px-4 pb-24 pt-4 sm:px-6 xl:pt-10">
-          <AccountSection />
-          <AppearanceSection />
-          <NotificationsSection />
-          {settings.data && (
-            <>
-              <SignatureSection settings={settings.data} save={patchSettings} />
-              <VacationSection settings={settings.data} save={patchSettings} />
-              <ForwardingSection settings={settings.data} save={patchSettings} />
-              <RulesSection settings={settings.data} save={patchSettings} />
-              <LabelsSection />
-              <BlockedSection settings={settings.data} save={patchSettings} />
-            </>
-          )}
-          <SecuritySection />
-          <DeveloperSection />
-          <DangerSection />
+        <h1 className="px-5 pb-4 font-display text-[28px] font-bold leading-none tracking-[-0.03em] lg:pt-8">Settings</h1>
+        <div className="mx-3 overflow-hidden rounded-xl bg-card shadow-[0_0_0_0.5px_var(--line)] lg:mx-2 lg:bg-transparent lg:shadow-none">
+          {PAGES.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => go(p.id)}
+              className={cx(
+                'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors lg:rounded-lg lg:py-2',
+                i > 0 && 'border-t border-line lg:border-t-0',
+                active === p.id ? 'lg:bg-fill-2' : 'hover:bg-fill',
+              )}
+            >
+              <PageIcon page={p} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14.5px] font-medium lg:text-[13.5px]">{p.label}</span>
+                <span className="block truncate text-[12px] text-fg-3 lg:hidden">{p.hint}</span>
+              </span>
+              <ChevronRight className="h-4 w-4 text-fg-3 lg:hidden" />
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <div className={cx('scroll-thin min-w-0 flex-1 overflow-y-auto', !section && 'hidden lg:block')}>
+        <div className="flex h-[52px] items-center gap-1 px-2 lg:hidden">
+          <button onClick={() => go()} className="flex items-center gap-0.5 rounded-md px-1.5 py-1 text-[15px] text-accent">
+            <ChevronLeft className="h-5 w-5" /> Settings
+          </button>
+        </div>
+        <div key={active} className="fade-up mx-auto max-w-[680px] space-y-9 px-4 pb-24 pt-2 sm:px-6 lg:pt-10">
+          <div className="flex items-center gap-3">
+            <PageIcon page={page} size={36} />
+            <div>
+              <h2 className="font-display text-[26px] font-bold leading-tight tracking-[-0.025em]">{page.label}</h2>
+              <p className="text-[13px] text-fg-3">{page.hint}</p>
+            </div>
+          </div>
+          {content}
         </div>
       </div>
     </div>
