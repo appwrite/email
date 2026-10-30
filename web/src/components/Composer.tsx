@@ -349,10 +349,12 @@ function ComposerWindow({ state }: { state: ComposerState }) {
       }}
       onDrop={onDrop}
       className={cx(
-        'pointer-events-auto relative flex flex-col overflow-hidden bg-elevated shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35),0_0_0_0.5px_var(--line-strong)]',
+        // One position class per state: `relative` alongside `fixed` would win
+        // and leave a full-screen composer stuck in the dock, cut off below.
+        'pointer-events-auto flex flex-col overflow-hidden bg-elevated shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35),0_0_0_0.5px_var(--line-strong)]',
         state.maximized
           ? 'fixed inset-3 z-[70] rounded-[22px] sm:inset-x-[10vw] sm:inset-y-[6vh]'
-          : 'fixed inset-0 z-[70] sm:static sm:h-[min(640px,calc(100dvh-32px))] sm:w-[580px] sm:rounded-[22px]',
+          : 'fixed inset-0 z-[70] sm:relative sm:inset-auto sm:h-[min(640px,calc(100dvh-32px))] sm:w-[580px] sm:rounded-[22px]',
       )}
     >
       <div
