@@ -12,4 +12,5 @@ export const TABLES = {
   contacts: 'contacts',
   labels: 'labels',
   apikeys: 'apikeys',
+  config: 'config',
 };

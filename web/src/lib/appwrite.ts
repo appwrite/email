@@ -30,6 +30,7 @@ export const TABLES = {
   contacts: 'contacts',
   labels: 'labels',
   apikeys: 'apikeys',
+  config: 'config',
 } as const;
 
 export const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID);

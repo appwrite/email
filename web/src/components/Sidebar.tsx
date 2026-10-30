@@ -11,6 +11,7 @@ import {
   PenSquare,
   Plus,
   Settings,
+  Shield,
   Sun,
   Tag as TagIcon,
   Trash2,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
 import { emptyTrash, markFolderRead } from '~/lib/actions';
+import { isAdmin } from '~/lib/admin';
 import { DATABASE_ID, TABLES, tablesDB } from '~/lib/appwrite';
 import { FOLDERS, LABEL_COLORS, LABEL_COLOR_NAMES } from '~/lib/folders';
 import { useMail } from '~/lib/mail-context';
@@ -287,6 +289,7 @@ export function Sidebar() {
         <div className="space-y-px">
           <NavItem to="/mail/contacts" label="Contacts" icon={Users} active={pathname.startsWith('/mail/contacts')} />
           <NavItem to="/mail/settings" label="Settings" icon={Settings} active={pathname.startsWith('/mail/settings')} />
+          {isAdmin(user) && <NavItem to="/mail/admin" label="Admin" icon={Shield} active={pathname.startsWith('/mail/admin')} />}
         </div>
       </nav>
 

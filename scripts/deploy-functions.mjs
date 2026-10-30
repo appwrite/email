@@ -44,7 +44,9 @@ const FUNCTIONS = [
     execute: ['users'],
     timeout: 30,
     schedule: '',
-    scopes: [...DATA_SCOPES, 'users.write'],
+    // users.write and project.policies.write let admins manage accounts and
+    // close sign-ups by capping the project's user count.
+    scopes: [...DATA_SCOPES, 'users.write', 'project.policies.write'],
     runtimeSpecification: 's-1vcpu-1gb',
   },
   {

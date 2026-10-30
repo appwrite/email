@@ -171,6 +171,14 @@ const schema = {
     ],
     indexes: [{ key: 'k_owner', type: 'key', columns: ['ownerId'] }],
   },
+  // Server-wide settings, one row (`app`). Anyone can read whether sign-ups
+  // are open; only the api function writes it.
+  [TABLES.config]: {
+    name: 'Config',
+    permissions: [Permission.read(Role.any())],
+    columns: [bool('signupsOpen', false)],
+    indexes: [],
+  },
   // Personal API keys. Only a SHA-256 hash is stored; rows are created by the
   // api function and readable and deletable by their owner.
   [TABLES.apikeys]: {

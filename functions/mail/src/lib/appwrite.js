@@ -1,4 +1,4 @@
-import { Client, TablesDB, Storage, Users, Messaging, Tokens } from 'node-appwrite';
+import { Client, TablesDB, Storage, Users, Messaging, Tokens, Project } from 'node-appwrite';
 
 export const DATABASE_ID = 'mail';
 export const BUCKET_ID = 'attachments';
@@ -10,6 +10,7 @@ export const TABLES = {
   contacts: 'contacts',
   labels: 'labels',
   apikeys: 'apikeys',
+  config: 'config',
 };
 
 // Function that owns the inbound addresses: <handle>@inbox-<project>.appwrite.email
@@ -39,6 +40,7 @@ export function services(key) {
     users: new Users(client),
     messaging: new Messaging(client),
     tokens: new Tokens(client),
+    project: new Project(client),
   };
 }
 

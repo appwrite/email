@@ -19,6 +19,7 @@ import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as MailIndexRouteImport } from './routes/mail/index'
 import { Route as MailFolderRouteImport } from './routes/mail/$folder'
+import { Route as MailAdminRouteImport } from './routes/mail/admin'
 import { Route as MailContactsRouteImport } from './routes/mail/contacts'
 import { Route as MailSettingsRouteImport } from './routes/mail/settings'
 import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
@@ -73,6 +74,11 @@ const MailFolderRoute = MailFolderRouteImport.update({
   path: '/$folder',
   getParentRoute: () => MailRoute,
 } as any)
+const MailAdminRoute = MailAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => MailRoute,
+} as any)
 const MailContactsRoute = MailContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/mail/$folder': typeof MailFolderRoute
+  '/mail/admin': typeof MailAdminRoute
   '/mail/contacts': typeof MailContactsRoute
   '/mail/settings': typeof MailSettingsRoute
   '/oauth/consent': typeof OauthConsentRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/mail/$folder': typeof MailFolderRoute
+  '/mail/admin': typeof MailAdminRoute
   '/mail/contacts': typeof MailContactsRoute
   '/mail/settings': typeof MailSettingsRoute
   '/oauth/consent': typeof OauthConsentRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/mail/$folder': typeof MailFolderRoute
+  '/mail/admin': typeof MailAdminRoute
   '/mail/contacts': typeof MailContactsRoute
   '/mail/settings': typeof MailSettingsRoute
   '/oauth/consent': typeof OauthConsentRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/mail/$folder'
+    | '/mail/admin'
     | '/mail/contacts'
     | '/mail/settings'
     | '/oauth/consent'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/mail/$folder'
+    | '/mail/admin'
     | '/mail/contacts'
     | '/mail/settings'
     | '/oauth/consent'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/mail/$folder'
+    | '/mail/admin'
     | '/mail/contacts'
     | '/mail/settings'
     | '/oauth/consent'
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MailFolderRouteImport
       parentRoute: typeof MailRoute
     }
+    '/mail/admin': {
+      id: '/mail/admin'
+      path: '/admin'
+      fullPath: '/mail/admin'
+      preLoaderRoute: typeof MailAdminRouteImport
+      parentRoute: typeof MailRoute
+    }
     '/mail/contacts': {
       id: '/mail/contacts'
       path: '/contacts'
@@ -291,6 +310,7 @@ declare module '@tanstack/react-router' {
 
 interface MailRouteChildren {
   MailFolderRoute: typeof MailFolderRoute
+  MailAdminRoute: typeof MailAdminRoute
   MailContactsRoute: typeof MailContactsRoute
   MailSettingsRoute: typeof MailSettingsRoute
   MailIndexRoute: typeof MailIndexRoute
@@ -298,6 +318,7 @@ interface MailRouteChildren {
 
 const MailRouteChildren: MailRouteChildren = {
   MailFolderRoute: MailFolderRoute,
+  MailAdminRoute: MailAdminRoute,
   MailContactsRoute: MailContactsRoute,
   MailSettingsRoute: MailSettingsRoute,
   MailIndexRoute: MailIndexRoute,

@@ -1,11 +1,12 @@
 // HTTP API for signed-in users. The app calls it through
 // functions.createExecution, so Appwrite sets x-appwrite-user-id for us.
 import { ID, Permission, Query, Role } from 'node-appwrite';
-import { BUCKET_ID, DATABASE_ID, TABLES, services } from './lib/appwrite.js';
+import { BUCKET_ID, DATABASE_ID, RECIPIENTS_USER_ID, TABLES, services } from './lib/appwrite.js';
 import { HANDLE_RE, RESERVED_HANDLES, mailboxAddress, parseAddress } from './lib/address.js';
 import { htmlToText, searchTextOf, snippetOf, topicOf, truncate } from './lib/content.js';
 import { randomBytes } from 'node:crypto';
 import { API_SCOPES, hashKey } from './lib/auth.js';
+import { getConfig, hasAdminLabel, listAccounts, requireAdmin, setAdmin, setConfig, syncUserLimit } from './lib/admin.js';
 import { HttpError, getMailbox, loadAttachments, readInput, senderName } from './lib/compose.js';
 import { deliver, getRowOrNull, outboundStatus, parseJson, sendMessage } from './lib/mail.js';
 import { APP_NAME, welcomeEmail } from './lib/welcome.js';
@@ -38,20 +39,8 @@ async function deleteFilesOf(svc, rows) {
   await Promise.allSettled(ids.map((fileId) => svc.storage.deleteFile({ bucketId: BUCKET_ID, fileId })));
 }
 
-const routes = {
-  'GET /mailbox/available': async ({ svc, req }) => {
-    const handle = String(req.query.handle || '').toLowerCase().trim();
-    const reason = validateHandle(handle);
-    if (reason) return { available: false, reason, address: mailboxAddress(handle) };
-    const { total } = await svc.tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: TABLES.mailboxes,
-      queries: [Query.equal('handle', handle), Query.limit(1)],
-    });
-    return { available: total === 0, reason: total ? 'That address is taken.' : null, address: mailboxAddress(handle) };
-  },
-
-  'POST /mailbox': async ({ svc, userId, body, log }) => {
+// Creates a mailbox (address, settings and welcome message) for a user.
+async function createMailbox(svc, userId, body, log) {
     const existing = await getRowOrNull(svc.tablesDB, TABLES.mailboxes, userId);
     if (existing) return existing;
 
@@ -107,6 +96,58 @@ const routes = {
       log,
     });
     return mailbox;
+}
+
+// Deletes a user with every message, draft, file, contact, label and key.
+async function deleteUserData(svc, userId) {
+    const owned = [Query.equal('ownerId', userId)];
+    const rows = [];
+    await forEachRow(svc, TABLES.messages, [...owned, Query.select(['$id', 'attachments'])], (r) => rows.push(r));
+    await forEachRow(svc, TABLES.drafts, [...owned, Query.select(['$id', 'attachments'])], (r) => rows.push(r));
+    await deleteFilesOf(svc, rows);
+    for (const tableId of [TABLES.messages, TABLES.drafts, TABLES.contacts, TABLES.labels, TABLES.apikeys]) {
+      await svc.tablesDB.deleteRows({ databaseId: DATABASE_ID, tableId, queries: owned });
+    }
+    for (const tableId of [TABLES.settings, TABLES.mailboxes]) {
+      await svc.tablesDB.deleteRow({ databaseId: DATABASE_ID, tableId, rowId: userId }).catch(() => {});
+    }
+    await svc.users.delete({ userId });
+}
+
+const routes = {
+  'GET /mailbox/available': async ({ svc, req }) => {
+    const handle = String(req.query.handle || '').toLowerCase().trim();
+    const reason = validateHandle(handle);
+    if (reason) return { available: false, reason, address: mailboxAddress(handle) };
+    const { total } = await svc.tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.mailboxes,
+      queries: [Query.equal('handle', handle), Query.limit(1)],
+    });
+    return { available: total === 0, reason: total ? 'That address is taken.' : null, address: mailboxAddress(handle) };
+  },
+
+  'POST /mailbox': async ({ svc, userId, body, log }) => {
+    const existing = await getRowOrNull(svc.tablesDB, TABLES.mailboxes, userId);
+    if (existing) return existing;
+    const config = await getConfig(svc);
+    if (!config) {
+      // A fresh install: the first person to claim an address becomes the
+      // admin, and sign-ups close until they reopen them. Installs that
+      // already have mailboxes keep sign-ups open until an admin decides.
+      const { total } = await svc.tablesDB.listRows({ databaseId: DATABASE_ID, tableId: TABLES.mailboxes, queries: [Query.limit(1)] });
+      const first = total === 0;
+      await setConfig(svc, { signupsOpen: !first });
+      if (first) {
+        await setAdmin(svc, await svc.users.get({ userId }), true);
+        const mailbox = await createMailbox(svc, userId, body, log);
+        await syncUserLimit(svc, false);
+        return mailbox;
+      }
+    } else if (!config.signupsOpen && !hasAdminLabel(await svc.users.get({ userId }))) {
+      throw new HttpError(403, 'Sign-ups are closed on this server. Ask an admin to create an account for you.');
+    }
+    return createMailbox(svc, userId, body, log);
   },
 
   'PATCH /mailbox': async ({ svc, userId, body }) => {
@@ -260,18 +301,98 @@ const routes = {
   },
 
   'POST /account/delete': async ({ svc, userId }) => {
-    const owned = [Query.equal('ownerId', userId)];
-    const rows = [];
-    await forEachRow(svc, TABLES.messages, [...owned, Query.select(['$id', 'attachments'])], (r) => rows.push(r));
-    await forEachRow(svc, TABLES.drafts, [...owned, Query.select(['$id', 'attachments'])], (r) => rows.push(r));
-    await deleteFilesOf(svc, rows);
-    for (const tableId of [TABLES.messages, TABLES.drafts, TABLES.contacts, TABLES.labels, TABLES.apikeys]) {
-      await svc.tablesDB.deleteRows({ databaseId: DATABASE_ID, tableId, queries: owned });
+    await deleteUserData(svc, userId);
+    // Keep sign-ups closed: the user cap follows the user count.
+    const config = await getConfig(svc);
+    if (config && !config.signupsOpen) await syncUserLimit(svc, false);
+    return { deleted: true };
+  },
+
+  // --- Admin ----------------------------------------------------------------
+
+  'GET /admin': async ({ svc, userId }) => {
+    await requireAdmin(svc, userId);
+    const [config, accounts] = await Promise.all([getConfig(svc), listAccounts(svc)]);
+    return { signupsOpen: !!config?.signupsOpen, accounts };
+  },
+
+  'PATCH /admin/config': async ({ svc, userId, body }) => {
+    await requireAdmin(svc, userId);
+    const signupsOpen = !!body.signupsOpen;
+    await setConfig(svc, { signupsOpen });
+    await syncUserLimit(svc, signupsOpen);
+    return { signupsOpen };
+  },
+
+  // Creates a sign-in and an address for someone, whether or not sign-ups are open.
+  'POST /admin/accounts': async ({ svc, userId, body, log }) => {
+    await requireAdmin(svc, userId);
+    const handle = String(body.handle || '').toLowerCase().trim();
+    const reason = validateHandle(handle);
+    if (reason) throw new HttpError(400, reason);
+    const taken = await svc.tablesDB.listRows({ databaseId: DATABASE_ID, tableId: TABLES.mailboxes, queries: [Query.equal('handle', handle), Query.limit(1)] });
+    if (taken.total) throw new HttpError(409, 'That address is taken.');
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    if (password.length < 8) throw new HttpError(400, 'Use a password of at least 8 characters.');
+    const name = truncate(String(body.name || '').trim(), 128);
+    let user;
+    try {
+      user = await svc.users.create({ userId: ID.unique(), email, password, name: name || undefined });
+    } catch (e) {
+      if (e.code === 409) throw new HttpError(409, 'An account with that sign-in email already exists.');
+      throw new HttpError(400, e.message);
     }
-    for (const tableId of [TABLES.settings, TABLES.mailboxes]) {
-      await svc.tablesDB.deleteRow({ databaseId: DATABASE_ID, tableId, rowId: userId }).catch(() => {});
+    try {
+      if (body.admin) await setAdmin(svc, user, true);
+      await svc.users.updateEmailVerification({ userId: user.$id, emailVerification: true }).catch(() => {});
+      await createMailbox(svc, user.$id, { handle, name }, log);
+    } catch (e) {
+      await svc.users.delete({ userId: user.$id }).catch(() => {});
+      throw e;
     }
-    await svc.users.delete({ userId });
+    const config = await getConfig(svc);
+    if (config && !config.signupsOpen) await syncUserLimit(svc, false);
+    return { ok: true, userId: user.$id };
+  },
+
+  'PATCH /admin/accounts': async ({ svc, userId, body }) => {
+    await requireAdmin(svc, userId);
+    const targetId = String(body.userId || '');
+    if (!targetId || targetId === RECIPIENTS_USER_ID) throw new HttpError(400, 'Pick an account.');
+    const target = await svc.users.get({ userId: targetId });
+    const self = targetId === userId;
+    if (typeof body.admin === 'boolean' && body.admin !== hasAdminLabel(target)) {
+      if (self && !body.admin) throw new HttpError(400, 'You can’t remove your own admin access.');
+      await setAdmin(svc, target, body.admin);
+    }
+    if (typeof body.blocked === 'boolean') {
+      if (self) throw new HttpError(400, 'You can’t block yourself.');
+      await svc.users.updateStatus({ userId: targetId, status: !body.blocked });
+      if (body.blocked) await svc.users.deleteSessions({ userId: targetId });
+    }
+    if (typeof body.name === 'string' && body.name.trim()) {
+      const name = truncate(body.name.trim(), 128);
+      await svc.users.updateName({ userId: targetId, name });
+      await svc.tablesDB.updateRow({ databaseId: DATABASE_ID, tableId: TABLES.mailboxes, rowId: targetId, data: { name } }).catch(() => {});
+    }
+    if (typeof body.password === 'string') {
+      if (body.password.length < 8) throw new HttpError(400, 'Use a password of at least 8 characters.');
+      await svc.users.updatePassword({ userId: targetId, password: body.password });
+      await svc.users.deleteSessions({ userId: targetId });
+    }
+    if (body.signOut) await svc.users.deleteSessions({ userId: targetId });
+    return { ok: true };
+  },
+
+  'POST /admin/accounts/delete': async ({ svc, userId, body }) => {
+    await requireAdmin(svc, userId);
+    const targetId = String(body.userId || '');
+    if (!targetId || targetId === RECIPIENTS_USER_ID) throw new HttpError(400, 'Pick an account.');
+    if (targetId === userId) throw new HttpError(400, 'Delete your own account from Settings.');
+    await deleteUserData(svc, targetId);
+    const config = await getConfig(svc);
+    if (config && !config.signupsOpen) await syncUserLimit(svc, false);
     return { deleted: true };
   },
 };

@@ -27,6 +27,20 @@ Three-pane mail with conversation threading, unread/starred/attachment filters, 
 
 Appwrite routes any local part at `<FUNCTION_ID>-<PROJECT_ID>.appwrite.email` to that function, so every user gets `<handle>@inbox-6ae21f6271db427f12bc.appwrite.email`, and `<handle>+anything@…` reaches the same mailbox. The earlier `<handle>+inbox@<PROJECT_ID>.appwrite.email` form is still routed and still delivers. For bare `<handle>@yourdomain.com` addresses, connect a custom email domain to the `inbox` function and add it to the function's `CUSTOM_DOMAINS` variable.
 
+## Admin and sign-ups
+
+The first person to claim an address on a fresh install becomes the admin, and sign-ups close. Admins get an **Admin** page in the sidebar to:
+
+- turn **Allow new sign-ups** on or off,
+- create accounts (a sign-in plus an address), even while sign-ups are closed,
+- rename accounts, reset passwords, sign people out everywhere, block or unblock them, make or remove admins, and delete accounts with all their data.
+
+Closed sign-ups are enforced by Appwrite itself: the `api` function sets the project's user limit (`project.updateUserLimitPolicy`) to the current number of users, so public sign-up is rejected while server-side account creation by admins still works, and it re-syncs the limit whenever an account is added or deleted. Claiming an address is also refused while sign-ups are closed. Admins are users with the `admin` label; the state lives in the `config` table. For an install that already had users, promote someone with:
+
+```bash
+node scripts/make-admin.mjs you@example.com --close-signups
+```
+
 ## API and MCP
 
 The `public` function serves a REST API and a remote MCP server (Streamable HTTP) at `https://email-api.appwrite.network`. Docs live at [/developers](https://email.appwrite.network/developers), and the OpenAPI spec at `/openapi.json`.
