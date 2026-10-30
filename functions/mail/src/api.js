@@ -7,6 +7,7 @@ import { htmlToText, searchTextOf, snippetOf, topicOf, truncate } from './lib/co
 import { randomBytes } from 'node:crypto';
 import { API_SCOPES, hashKey } from './lib/auth.js';
 import { getConfig, hasAdminLabel, listAccounts, requireAdmin, setAdmin, setConfig, syncUserLimit } from './lib/admin.js';
+import { LIMIT_DEFAULTS, checkSendLimits, countRecipients, limitsOf, readLimits, recordSend, usage } from './lib/limits.js';
 import { HttpError, getMailbox, loadAttachments, readInput, senderName } from './lib/compose.js';
 import { deliver, getRowOrNull, outboundStatus, parseJson, sendMessage } from './lib/mail.js';
 import { APP_NAME, welcomeEmail } from './lib/welcome.js';
@@ -165,6 +166,8 @@ const routes = {
   'POST /send': async ({ svc, userId, body, log }) => {
     const mailbox = await getMailbox(svc, userId);
     const input = readInput(body);
+    const sending = countRecipients(input);
+    await checkSendLimits(svc, userId, sending.recipients);
     const files = await loadAttachments(svc, userId, input.attachments);
     const name = await senderName(svc, userId, mailbox);
 
@@ -210,10 +213,13 @@ const routes = {
         ],
       });
       if (body.draftId) await deleteDraft(svc, userId, body.draftId);
+      // Scheduled mail counts when it's scheduled, so it can't dodge the limits.
+      await recordSend(svc, userId, sending);
       return { message: row, status: 'scheduled' };
     }
 
     const result = await sendMessage(svc, { mailbox, senderName: name, input, files, log });
+    if (result.sent) await recordSend(svc, userId, sending);
     if (body.draftId) await deleteDraft(svc, userId, body.draftId);
     if (result.status === 'failed' && !result.sent) throw new HttpError(502, result.error);
     return { message: result.sent, status: result.status, error: result.error || null };
@@ -313,15 +319,24 @@ const routes = {
   'GET /admin': async ({ svc, userId }) => {
     await requireAdmin(svc, userId);
     const [config, accounts] = await Promise.all([getConfig(svc), listAccounts(svc)]);
-    return { signupsOpen: !!config?.signupsOpen, accounts };
+    const sent = await Promise.all(accounts.map((a) => usage(svc, a.id)));
+    return {
+      signupsOpen: !!config?.signupsOpen,
+      limits: limitsOf(config),
+      limitDefaults: LIMIT_DEFAULTS,
+      accounts: accounts.map((a, i) => ({ ...a, sentHour: sent[i].hour, sentDay: sent[i].day })),
+    };
   },
 
   'PATCH /admin/config': async ({ svc, userId, body }) => {
     await requireAdmin(svc, userId);
-    const signupsOpen = !!body.signupsOpen;
-    await setConfig(svc, { signupsOpen });
-    await syncUserLimit(svc, signupsOpen);
-    return { signupsOpen };
+    const config = await getConfig(svc);
+    const patch = readLimits(body);
+    if (typeof body.signupsOpen === 'boolean') patch.signupsOpen = body.signupsOpen;
+    // Write every field, so nothing depends on how a partial upsert behaves.
+    const next = await setConfig(svc, { signupsOpen: !!config?.signupsOpen, ...limitsOf(config), ...patch });
+    if (typeof body.signupsOpen === 'boolean') await syncUserLimit(svc, body.signupsOpen);
+    return { signupsOpen: !!next.signupsOpen, limits: limitsOf(next) };
   },
 
   // Creates a sign-in and an address for someone, whether or not sign-ups are open.

@@ -5,6 +5,7 @@ import { DATABASE_ID, TABLES, fileDownloadUrl } from './appwrite.js';
 import { escapeHtml, truncate } from './content.js';
 import { HttpError, getMailbox, loadAttachments, readInput, senderName } from './compose.js';
 import { getRowOrNull, parseJson, sendMessage } from './mail.js';
+import { checkSendLimits, countRecipients, recordSend } from './limits.js';
 
 export const LIST_FOLDERS = ['inbox', 'starred', 'snoozed', 'sent', 'scheduled', 'archive', 'spam', 'trash', 'all'];
 export const MOVE_FOLDERS = ['inbox', 'archive', 'spam', 'trash'];
@@ -200,8 +201,11 @@ export async function send(svc, userId, body = {}, log) {
   const html = body.html ? String(body.html) : textToHtml(body.text ?? body.body ?? '');
   if (!subject && !body.replyTo) throw new HttpError(400, 'Add a subject.');
   const input = readInput({ to, cc, bcc: body.bcc, subject: truncate(String(subject || ''), 998), html, attachments: body.attachments, ...thread });
+  const sending = countRecipients(input);
+  await checkSendLimits(svc, userId, sending.recipients);
   const files = await loadAttachments(svc, userId, input.attachments);
   const result = await sendMessage(svc, { mailbox, senderName: name, input, files, log });
+  if (result.sent) await recordSend(svc, userId, sending);
   if (result.status === 'failed' && !result.sent) throw new HttpError(502, result.error || 'Sending failed.');
   return { status: result.status, message: result.sent ? summary(result.sent) : null, error: result.error || null };
 }

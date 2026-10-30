@@ -13,4 +13,5 @@ export const TABLES = {
   labels: 'labels',
   apikeys: 'apikeys',
   config: 'config',
+  sendlog: 'sendlog',
 };

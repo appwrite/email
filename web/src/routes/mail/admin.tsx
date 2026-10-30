@@ -4,6 +4,7 @@ import {
   Ban,
   Check,
   Copy,
+  Gauge,
   KeyRound,
   LogOut,
   Menu,
@@ -23,7 +24,7 @@ import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } fr
 import { openContextMenu, type MenuEntry } from '~/components/ContextMenu';
 import { Avatar, Button, Empty, Field, IconButton, Input, Sheet, Spinner, Switch, cx } from '~/components/ui';
 import { copyText } from '~/lib/actions';
-import { adminApi, generatePassword, isAdmin, type Account } from '~/lib/admin';
+import { adminApi, generatePassword, isAdmin, type Account, type SendLimits } from '~/lib/admin';
 import { MAIL_DOMAIN } from '~/lib/appwrite';
 import { formatAddress, relativeTime } from '~/lib/format';
 import { useMail } from '~/lib/mail-context';
@@ -153,6 +154,15 @@ function AdminPage() {
             </div>
           </section>
 
+          {overview.data && (
+            <SendingLimits
+              key={JSON.stringify(overview.data.limits)}
+              limits={overview.data.limits}
+              defaults={overview.data.limitDefaults}
+              onSaved={() => overview.refetch()}
+            />
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -193,7 +203,13 @@ function AdminPage() {
               ) : (
                 <ul className="divide-y divide-line">
                   {list.map((a) => (
-                    <AccountRow key={a.id} account={a} self={a.id === user.$id} onMenu={(e) => openContextMenu(e, menuFor(a))} />
+                    <AccountRow
+                      key={a.id}
+                      account={a}
+                      self={a.id === user.$id}
+                      dailyLimit={a.admin && overview.data?.limits.exemptAdmins ? 0 : overview.data?.limits.sendPerDay || 0}
+                      onMenu={(e) => openContextMenu(e, menuFor(a))}
+                    />
                   ))}
                 </ul>
               )}
@@ -280,6 +296,81 @@ function AdminPage() {
   );
 }
 
+const LIMIT_FIELDS: { key: 'sendPerMinute' | 'sendPerHour' | 'sendPerDay' | 'maxRecipients'; label: string; unit: string }[] = [
+  { key: 'sendPerMinute', label: 'Per minute', unit: 'emails' },
+  { key: 'sendPerHour', label: 'Per hour', unit: 'emails' },
+  { key: 'sendPerDay', label: 'Per day', unit: 'emails' },
+  { key: 'maxRecipients', label: 'Per message', unit: 'recipients' },
+];
+
+function SendingLimits({ limits, defaults, onSaved }: { limits: SendLimits; defaults: SendLimits; onSaved: () => void }) {
+  const [draft, setDraft] = useState<SendLimits>(limits);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(limits);
+  const isDefault = JSON.stringify(draft) === JSON.stringify(defaults);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await adminApi.setLimits(draft);
+      toast({ title: 'Sending limits saved', tone: 'success' });
+      onSaved();
+    } catch (err: any) {
+      toast({ title: 'Could not save limits', description: err.message, tone: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="overflow-hidden rounded-2xl bg-card shadow-[0_0_0_0.5px_var(--line-strong)]">
+      <div className="flex items-center gap-4 px-5 pt-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-warning text-white">
+          <Gauge className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[15.5px] font-semibold">Sending limits</div>
+          <div className="text-[13px] leading-snug text-fg-2">
+            Protects your domain’s reputation from runaway scripts and compromised accounts. Every recipient counts as one email, across the app, scheduled
+            mail, the API and MCP. Use 0 for no limit.
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 px-5 pt-4 sm:grid-cols-4">
+        {LIMIT_FIELDS.map((f) => (
+          <label key={f.key} className="rounded-xl bg-fill px-3.5 py-2.5">
+            <span className="block text-[12px] font-medium text-fg-2">{f.label}</span>
+            <input
+              type="number"
+              min={f.key === 'maxRecipients' ? 1 : 0}
+              step={1}
+              value={draft[f.key]}
+              onChange={(e) => setDraft((d) => ({ ...d, [f.key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+              className="mt-0.5 w-full bg-transparent font-display text-[22px] font-bold tabular-nums tracking-[-0.02em] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="block text-[11.5px] text-fg-3">{draft[f.key] === 0 && f.key !== 'maxRecipients' ? 'Unlimited' : f.unit}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+        <label className="flex flex-1 cursor-pointer items-center gap-3 text-[13.5px]">
+          <Switch checked={draft.exemptAdmins} onChange={(v) => setDraft((d) => ({ ...d, exemptAdmins: v }))} label="Admins are exempt" />
+          <span>Admins are exempt</span>
+        </label>
+        {!isDefault && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setDraft(defaults)}>
+            Reset to defaults
+          </Button>
+        )}
+        <Button type="submit" variant="primary" size="sm" loading={saving} disabled={!dirty}>
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function Badge({ children, tone }: { children: ReactNode; tone: 'accent' | 'danger' | 'muted' }) {
   return (
     <span
@@ -295,7 +386,8 @@ function Badge({ children, tone }: { children: ReactNode; tone: 'accent' | 'dang
   );
 }
 
-function AccountRow({ account: a, self, onMenu }: { account: Account; self: boolean; onMenu: (e: MouseEvent) => void }) {
+function AccountRow({ account: a, self, dailyLimit, onMenu }: { account: Account; self: boolean; dailyLimit: number; onMenu: (e: MouseEvent) => void }) {
+  const nearLimit = dailyLimit > 0 && a.sentDay >= dailyLimit * 0.8;
   return (
     <li className="group flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-fill/60" onContextMenu={onMenu}>
       <Avatar name={a.name || a.email} email={a.address || a.email} size={40} />
@@ -311,6 +403,10 @@ function AccountRow({ account: a, self, onMenu }: { account: Account; self: bool
       </div>
       <div className="hidden shrink-0 text-right sm:block">
         <div className="text-[13px] tabular-nums text-fg">{a.messages.toLocaleString()} messages</div>
+        <div className={cx('text-[12px] tabular-nums', nearLimit ? 'font-medium text-warning' : 'text-fg-3')}>
+          {a.sentDay.toLocaleString()}
+          {dailyLimit ? ` / ${dailyLimit.toLocaleString()}` : ''} sent today
+        </div>
         <div className="text-[12px] text-fg-3">{a.accessedAt ? `Active ${relativeTime(a.accessedAt)}` : `Joined ${relativeTime(a.createdAt)}`}</div>
       </div>
       <IconButton label="Account actions" onClick={(e) => onMenu(e)} className="shrink-0">

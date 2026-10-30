@@ -402,7 +402,14 @@ export default async ({ req, res, log, error }) => {
     } catch (e) {
       const status = e instanceof HttpError ? e.code : e.code >= 400 && e.code < 500 ? e.code : 500;
       if (status >= 500) error(`${req.method} ${path}: ${e.stack || e.message}`);
-      const headers = status === 401 ? challenge(401, 'invalid_token', e.message) : status === 403 ? challenge(403, 'insufficient_scope', e.message) : {};
+      const headers =
+        status === 401
+          ? challenge(401, 'invalid_token', e.message)
+          : status === 403
+            ? challenge(403, 'insufficient_scope', e.message)
+            : status === 429 && e.retryAfter
+              ? { 'retry-after': String(e.retryAfter) }
+              : {};
       return json({ message: status >= 500 ? 'Something went wrong.' : e.message }, status, headers);
     }
   }

@@ -12,7 +12,8 @@ export class HttpError extends Error {
   }
 }
 
-export const MAX_RECIPIENTS = 50;
+// Hard ceiling per message; admins set the real cap in sending limits.
+export const MAX_RECIPIENTS = 500;
 const MAX_ATTACHMENTS = 10;
 
 export async function getMailbox(svc, userId) {

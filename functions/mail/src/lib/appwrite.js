@@ -11,6 +11,7 @@ export const TABLES = {
   labels: 'labels',
   apikeys: 'apikeys',
   config: 'config',
+  sendlog: 'sendlog',
 };
 
 // Function that owns the inbound addresses: <handle>@inbox-<project>.appwrite.email

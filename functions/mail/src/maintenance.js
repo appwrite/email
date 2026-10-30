@@ -4,6 +4,7 @@ import { Query } from 'node-appwrite';
 import { DATABASE_ID, TABLES, services } from './lib/appwrite.js';
 import { parseAddressList } from './lib/address.js';
 import { getRowOrNull, outboundStatus, parseJson, sendMessage } from './lib/mail.js';
+import { purgeSendLog } from './lib/limits.js';
 
 const TRASH_RETENTION_DAYS = 30;
 
@@ -107,7 +108,7 @@ async function purgeTrash(svc) {
 export default async ({ req, res, log, error }) => {
   const svc = services(req.headers['x-appwrite-key']);
   const report = {};
-  for (const [name, job] of Object.entries({ sendDue, wakeSnoozed, refreshStatuses, purgeTrash })) {
+  for (const [name, job] of Object.entries({ sendDue, wakeSnoozed, refreshStatuses, purgeTrash, purgeSendLog })) {
     try {
       report[name] = await job(svc, log, error);
     } catch (e) {

@@ -176,8 +176,32 @@ const schema = {
   [TABLES.config]: {
     name: 'Config',
     permissions: [Permission.read(Role.any())],
-    columns: [bool('signupsOpen', false)],
+    columns: [
+      bool('signupsOpen', false),
+      // Sending limits; 0 means unlimited, empty means the default.
+      int('sendPerMinute'),
+      int('sendPerHour'),
+      int('sendPerDay'),
+      int('maxRecipients'),
+      bool('exemptAdmins', true),
+    ],
     indexes: [],
+  },
+  // One row per outgoing message, for rate limits. Server-only, so deleting
+  // sent mail can't reset the count; rows older than two days are purged.
+  [TABLES.sendlog]: {
+    name: 'Send log',
+    permissions: [],
+    columns: [
+      str('ownerId', 36, { required: true }),
+      int('recipients', { xdefault: 0 }),
+      int('external', { xdefault: 0 }),
+      date('at', { required: true }),
+    ],
+    indexes: [
+      { key: 'k_owner_at', type: 'key', columns: ['ownerId', 'at'] },
+      { key: 'k_at', type: 'key', columns: ['at'] },
+    ],
   },
   // Personal API keys. Only a SHA-256 hash is stored; rows are created by the
   // api function and readable and deletable by their owner.
